@@ -125,7 +125,7 @@ const ShareLink: FC<IShareLink> = (props) => {
             // const walletCore = await initWasm();
             // const wallet = new Wallet(walletCore);
             // setWallet(wallet);
-            const plink = await Plink.fromLink("http://localhost:3000/" + uuid)
+            const plink = await Plink.fromLink("https://plink-sol.vercel.app/" + uuid)
             
             const destinationSigner = new Keypair(plink.keypair)
             // const account = wallet.getAccountFromPayLink(uuid);
@@ -231,7 +231,7 @@ const ShareLink: FC<IShareLink> = (props) => {
             //     value: walletBalanceHex,
             // })) as any;
 
-            const fromLink = await Plink.fromLink("http://localhost:3000" + uuid);
+            const fromLink = await Plink.fromLink("https://plink-sol.vercel.app/" + uuid);
 
             // const ethersProvider = new ethers.providers.JsonRpcProvider(
             //     BaseGoerli.info.rpc,

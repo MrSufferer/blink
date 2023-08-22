@@ -1,5 +1,5 @@
 # Plink
-Built during OPOS Hackathon
+Built during OPOS Hackathon 2023
 
 ### How it Works
 1. Create a Plink Link
