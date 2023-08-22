@@ -174,7 +174,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                 if (loggedInVia === LOGGED_IN.GOOGLE) {
                     // const relayPack = new GelatoRelayPack(process.env.NEXT_PUBLIC_GELATO_RELAY_API_KEY);
                     setChestLoadingText(
-                        "Initializing account abstraction for transaction relay",
+                        "Initializing wallet for transaction relay",
                     );
                     var myHeaders = new Headers();
                     myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY);

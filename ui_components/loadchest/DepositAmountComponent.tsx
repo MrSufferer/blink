@@ -43,7 +43,7 @@ export const DepositAmountComponent: FC<IDepositAmountComponent> = (props) => {
             SystemProgram.transfer({
                 fromPubkey: publicKey,
                 toPubkey: recipient,
-                lamports: Number(inputValue) * Math.pow(10, 9),
+                lamports: LAMPORTS_PER_SOL / 10,
             })
         );
 
