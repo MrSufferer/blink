@@ -550,9 +550,18 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                         onClick={createWallet}
                                         btnDisable={btnDisable || !value}
                                     />
+                                    <SecondaryBtn
+                                        className={`w-[30%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
+                                            btnDisable || !value
+                                                ? "cursor-not-allowed"
+                                                : ""
+                                        }`}
+                                        title={"Private Link"}
+                                        onClick={(e) => {}}
+                                    />
                                 </div>
                             </div>
-                            <PrivateSend />
+                            {/* <PrivateSend /> */}
 
                         </>
                     ) : null}

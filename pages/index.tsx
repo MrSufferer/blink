@@ -115,7 +115,7 @@ export default function Home() {
 
             const web3auth = new Web3AuthNoModal({
                 clientId: web3AuthClientId, // get it from Web3Auth Dashboard
-                web3AuthNetwork: "cyan",
+                web3AuthNetwork: "testnet",
                 chainConfig: {
                     chainNamespace: CHAIN_NAMESPACES.SOLANA,
                     chainId: "0x3", // Please use 0x1 for Mainnet, 0x2 for Testnet, 0x3 for Devnet
