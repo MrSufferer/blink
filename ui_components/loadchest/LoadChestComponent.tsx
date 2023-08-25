@@ -19,7 +19,9 @@ import { FC, useContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
 import { parseEther } from "viem";
+import bs58 from "bs58";
 import { Plink } from '../../utils/wallet/plink';
+import { getSignedSeed } from '../../utils/helpers'
 import { Keypair, Connection, Transaction, PublicKey, SystemProgram, LAMPORTS_PER_SOL, sendTransaction } from '@solana/web3.js'
 import { SolanaWallet } from "@web3auth/solana-provider"
 import {
@@ -28,6 +30,7 @@ import {
     getSendTransactionStatus,
     getUsdPrice,
 } from "../../apiServices";
+import { Elusiv, TokenType, SEED_MESSAGE } from "@elusiv/sdk";
 import { GlobalContext } from "../../context/GlobalContext";
 import { LOGGED_IN, THandleStep } from "../../pages";
 import * as loaderAnimation from "../../public/lottie/loader.json";
@@ -48,6 +51,11 @@ import { ProfileCard } from "./ProfileCard";
 import { useWagmi } from "../../utils/wagmi/WagmiContext";
 import ReactTyped from "react-typed";
 import { SolanaWalletProvider } from "../../context/SolanaWalletContext";
+import { sha512 } from "@noble/hashes/sha512";
+import * as ed from "@noble/ed25519";
+
+ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
+
 
 export interface ILoadChestComponent {
     provider?: any;
@@ -75,12 +83,92 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     const [balanceInUsd, setBalanceInUsd] = useState("");
     const [showActivity, setShowActivity] = useState(false);
     const [chestLoadingText, setChestLoadingText] = useState("");
+    const [privateBalance, setPrivateBalance] = useState(BigInt(0));
+    const [isElusivLoading, setIsElusivLoading] = useState(true);
+    const [solanaWallet, setSolanaWallet] = useState<SolanaWallet>();
+    const [elusiv, setElusiv] = useState<Elusiv>(null);
 
     const handleToggle = () => {
         setToggle(!toggle);
     };
 
-    // const { sendTransaction } = useWagmi();
+    useEffect(() => {
+        const setParams = async () => {
+            const connection = new Connection("https://api.devnet.solana.com");
+
+            const wallet = new SolanaWallet(provider)
+            setSolanaWallet(wallet)
+
+            const accounts = await wallet.requestAccounts();
+
+            const signedSeed = await wallet.signMessage(Buffer.from(SEED_MESSAGE))
+            
+            const elu = await Elusiv.getElusivInstance(
+                signedSeed,
+                new PublicKey(accounts[0]),
+                connection,
+                "devnet"
+            );
+          setElusiv(elu);
+          setIsElusivLoading(false);
+        };
+    
+        setParams();
+    }, []);
+
+    useEffect(() => {
+        const getBalance = async () => {
+          const privateBalance = await elusiv.getLatestPrivateBalance("LAMPORTS");
+          setPrivateBalance(privateBalance);
+        //   setFetching(false);
+        };
+    
+        if (elusiv !== null) {
+          getBalance().then(() => {});
+        }
+    }, [elusiv]);
+
+    const topup = async (
+        elusivInstance: Elusiv,
+        amount: number,
+        tokenType: TokenType
+      ) => {
+        // Build our topup transaction
+        const topupTx = await elusivInstance.buildTopUpTx(amount, tokenType);
+        // Sign it (only needed for topups, as we're topping up from our public key there)
+
+        const signedTx = await solanaWallet.signTransaction(topupTx.tx) as Transaction;
+        topupTx.setSignedTx(signedTx)
+        // Send it off
+        return elusivInstance.sendElusivTx(topupTx);
+    };
+
+    const topupHandler = async (e) => {
+        e.preventDefault();
+        toast.info("Initiating topup...");
+        const sig = await topup(
+          elusiv,
+          LAMPORTS_PER_SOL / 10,
+          "LAMPORTS"
+        );
+        toast.success(`Topup 0.1 SOL complete with sig ${sig.signature}`);
+    };
+
+    const send = async (
+        elusivInstance: Elusiv,
+        recipient: PublicKey,
+        amount: number,
+        tokenType: TokenType
+      ) => {
+        // Build the send transaction
+        const sendTx = await elusivInstance.buildSendTx(
+          amount,
+          recipient,
+          tokenType
+        );
+        // Send it off!
+        return elusivInstance.sendElusivTx(sendTx);
+    };
 
     useEffect(() => {
         if (address) {
@@ -291,6 +379,175 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
         }
     };
 
+    const createPrivateWallet = async () => {
+        const _inputValue = inputValue.replace(/[^\d.]/g, "");
+        if (_inputValue) {
+            setTransactionLoading(true);
+            setChestLoadingText("Initializing private wallet and creating link...");
+            try {
+                // const walletCore = await initWasm();
+                // const wallet = new Wallet(walletCore);
+                const payData = await Plink.create();
+
+                console.log(payData)
+
+                setChestLoadingText("Sending 0.05 SOL");
+
+                const destinationSigner = new Keypair(payData.keypair);
+                // const destinationEOAAddress = await destinationSigner.getAddress();
+                // const ethAdapter = new EthersAdapter({
+                //     ethers,
+                //     signerOrProvider: destinationSigner,
+                // });
+                setChestLoadingText("Creating solana address for chest");
+                // const safeFactory = await SafeFactory.create({
+                //     ethAdapter: ethAdapter,
+                // });
+                // const safeAccountConfig: SafeAccountConfig = {
+                //     owners: [destinationEOAAddress],
+                //     threshold: 1,
+                // };
+                // const destinationAddress = await safeFactory.predictSafeAddress(
+                //     safeAccountConfig,
+                // );
+                setChestLoadingText("contract created");
+
+                if (loggedInVia === LOGGED_IN.GOOGLE) {
+                    // const relayPack = new GelatoRelayPack(process.env.NEXT_PUBLIC_GELATO_RELAY_API_KEY);
+                    setChestLoadingText(
+                        "Initializing wallet for transaction relay",
+                    );
+                    var myHeaders = new Headers();
+                    myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY);
+                    
+                    var requestOptions = {
+                      method: 'POST',
+                      headers: myHeaders,
+                      redirect: 'follow'
+                    };
+                    
+                    var feePayer = await fetch("https://api.shyft.to/sol/v1/txn_relayer/create", requestOptions)
+                      .then(response => response.text())
+                      .then(result => JSON.parse(result))
+                      .catch(error => console.log('error', error));
+                    // const fromEthProvider = new ethers.providers.Web3Provider(provider);
+                    // const fromSigner = await fromEthProvider.getSigner();
+                    // const safeAccountAbstraction = new AccountAbstraction(fromSigner);
+                    // await safeAccountAbstraction.init({ relayPack });
+                    setChestLoadingText("Transaction process has begun...");
+                    // const safeTransactionData: MetaTransactionData = {
+                    //     to: destinationAddress,
+                    //     data: "0x",
+                    //     value: parseEther(inputValue).toString(),
+                    //     operation: OperationType.Call,
+                    // };
+
+                    // const options: MetaTransactionOptions = {
+                    //     gasLimit: "100000",
+                    //     isSponsored: true,
+                    // };
+
+                    // const gelatoTaskId = await safeAccountAbstraction.relayTransaction(
+                    //     [safeTransactionData],
+                    //     options,
+                    // );
+                    // console.log("gelatoTaskId ", gelatoTaskId);
+                    // console.log(`https://relay.gelato.digital/tasks/status/${gelatoTaskId}`);
+                    // solanaWallet is from above
+
+                    console.log(feePayer)
+
+                    // const connection = new Connection("https://api.devnet.solana.com", 'confirmed');
+                    
+                    // const block = await connection.getLatestBlockhash("finalized");
+                    // const TransactionInstruction = SystemProgram.transfer({
+                    //     fromPubkey: new PublicKey(address),
+                    //     toPubkey: new PublicKey(destinationSigner.publicKey),
+                    //     lamports: Number(inputValue) * Math.pow(10, 9),
+                    // });
+
+                    // const transaction = new Transaction({
+                    //     blockhash: block.blockhash,
+                    //     lastValidBlockHeight: block.lastValidBlockHeight,
+                    //     feePayer: new PublicKey(feePayer.result.wallet),
+                    // }).add(TransactionInstruction);
+
+                    if (privateBalance > BigInt(0)) {
+                        // Send half a SOL
+                        setChestLoadingText("It should take a bit long...You may need a coffee");
+                        const sig = await send(
+                            elusiv,
+                            destinationSigner.publicKey,
+                            LAMPORTS_PER_SOL / 20,
+                            "LAMPORTS"
+                        );
+                        setChestLoadingText(
+                            `Operation Successful: Transaction Completed with sig ${sig.signature}`,
+                        );
+                        router.push(payData.url.toString());
+
+                    }
+
+                    // we need a get the solana wallet to sign here
+                    // const solanaWallet = new SolanaWallet(provider);
+
+                    // const signedTx = await solanaWallet.signTransaction(transaction);
+
+                    // const serializedTransaction = signedTx.serialize({ requireAllSignatures: false, verifySignatures: true });
+                    // const transactionBase64 = serializedTransaction.toString('base64');
+
+                    // var myHeaders = new Headers();
+                    // myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY);
+                    // myHeaders.append("Content-Type", "application/json");
+                    
+                    // var raw = JSON.stringify({
+                    // "network": "devnet",
+                    // "encoded_transaction": transactionBase64
+                    // });
+                    
+                    // var reqOptions = {
+                    // method: 'POST',
+                    // headers: myHeaders,
+                    // body: raw,
+                    // redirect: 'follow'
+                    // };
+                    // // const serializedTransaction = tx.serialize({ requireAllSignatures: false, verifySignatures: true });
+                    // // const transactionBase64 = serializedTransaction.toString('base64');
+                    
+                    // var relayResult = await fetch("https://api.shyft.to/sol/v1/txn_relayer/sign", reqOptions)
+                    // .then(response => response.text())
+                    // .then(result => JSON.parse(result))
+                    // .catch(error => console.log('error', error));
+                    // if (relayResult) {
+                    //     console.log(relayResult)
+                    //     setChestLoadingText(
+                    //         "Transaction on its way! Awaiting confirmation...",
+                    //     );
+                    //     handleTransactionStatus(relayResult, payData.url.toString());
+                    // }
+                } else {
+                    try {
+                        // const sendAmount = await sendTransaction({
+                        //     to: destinationAddress,
+                        //     value: parseEther(inputValue),
+                        // });
+                        // handleTransactionStatus(sendAmount.hash, payData.url);
+                    } catch (e: any) {
+                        setTransactionLoading(false);
+                        const err = serializeError(e);
+                        toast.error(err.message);
+                        console.log(e, "error");
+                    }
+                }
+            } catch (e: any) {
+                setTransactionLoading(false);
+                const err = serializeError(e);
+                toast.error(err.message);
+                console.log(e, "e");
+            }
+        }
+    };
+
     const handleTransactionStatus = (relayResult: any, link: string) => {
         const intervalInMilliseconds = 2000;
         const interval = setInterval(() => {
@@ -428,7 +685,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                         <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
                                                             {price}
                                                         </p>
-                                                        <p className="text-white/30 text-[12px] leading-[14px]">
+                                                        <p className="text-white/30 text-[14px] leading-[14px]">
                                                             {tokenValue} SOL
                                                         </p>
                                                     </div>
@@ -442,6 +699,39 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                 <div>
                                                     <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
                                                         ~ {tokenValue} SOL
+                                                    </p>
+                                                    <p className="text-white/30 text-[12px] leading-[14px]">
+                                                        {price}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex items-start gap-3 my-2">
+                                            <p className="text-[#798593] text-[14px] font-semibold leading-10">
+                                                Private Balance:
+                                            </p>
+                                            {toggle ? (
+                                                loading ? (
+                                                    <div className="w-full h-full">
+                                                        <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
+                                                        <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <p className="text-white/60 text-[14px] font-semibold leading-10">
+                                                            {Number(privateBalance) / Math.pow(10, 9)} SOL
+                                                        </p>
+                                                    </div>
+                                                )
+                                            ) : loading ? (
+                                                <div className="w-full h-full">
+                                                    <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
+                                                    <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
+                                                        ~ {privateBalance.toString()} SOL
                                                     </p>
                                                     <p className="text-white/30 text-[12px] leading-[14px]">
                                                         {price}
@@ -551,13 +841,22 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                         btnDisable={btnDisable || !value}
                                     />
                                     <SecondaryBtn
-                                        className={`w-[30%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
+                                        className={`w-[20%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
                                             btnDisable || !value
                                                 ? "cursor-not-allowed"
                                                 : ""
                                         }`}
+                                        title={"Topup"}
+                                        onClick={(e) => topupHandler(e)}
+                                    />
+                                    <SecondaryBtn
+                                        className={`w-[20%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
+                                            btnDisable || !value || privateBalance <= BigInt(0.05)
+                                                ? "cursor-not-allowed"
+                                                : ""
+                                        }`}
                                         title={"Private Link"}
-                                        onClick={(e) => {}}
+                                        onClick={createPrivateWallet}
                                     />
                                 </div>
                             </div>
