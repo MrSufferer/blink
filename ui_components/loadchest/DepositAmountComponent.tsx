@@ -9,6 +9,7 @@ import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } from '@solana/web3.js';
 import PrimaryBtn from "../PrimaryBtn";
+import { parse } from "path";
 export interface IDepositAmountComponent {
     tokenPrice: string;
     walletAddress: string;
@@ -31,8 +32,9 @@ export const DepositAmountComponent: FC<IDepositAmountComponent> = (props) => {
         setInputValue(String(getTokenFormattedNumber(String(tokenVal), 9)));
     };
 
-    const onClick = useCallback(async () => {
+    const onClick = (async () => {
         if (!publicKey) throw new WalletNotConnectedError();
+        setTransactionLoading(true);
 
         // 890880 lamports as of 2022-09-01
         const lamports = await connection.getMinimumBalanceForRentExemption(0);
@@ -43,72 +45,86 @@ export const DepositAmountComponent: FC<IDepositAmountComponent> = (props) => {
             SystemProgram.transfer({
                 fromPubkey: publicKey,
                 toPubkey: recipient,
-                lamports: LAMPORTS_PER_SOL / 10,
+                lamports: LAMPORTS_PER_SOL * Number(inputValue),
             })
         );
 
-        const {
-            context: { slot: minContextSlot },
-            value: { blockhash, lastValidBlockHeight }
-        } = await connection.getLatestBlockhashAndContext();
-
-        const signature = await sendTransaction(transaction, connection, { minContextSlot });
-
-        await connection.confirmTransaction({ blockhash, lastValidBlockHeight, signature });
-
-        // const signature = await sendAndConfirmTransaction(
-        //     connection,
-        //     transaction,
-        //     [publicKey],
-        //   );
-    }, [publicKey, sendTransaction, connection]);
-
-    const handleDepositClick = async () => {
-        setTransactionLoading(true);
-        const toAmount = Number(inputValue) * Math.pow(10, 18);
         try {
-            const result = await sendTransaction({
-                to: walletAddress,
-                value: parseEther(inputValue),
-            });
-            handleTransactionStatus(result.hash);
+            const {
+                context: { slot: minContextSlot },
+                value: { blockhash, lastValidBlockHeight }
+            } = await connection.getLatestBlockhashAndContext();
+    
+            const signature = await sendTransaction(transaction, connection, { minContextSlot });
+    
+            await connection.confirmTransaction({ blockhash, lastValidBlockHeight, signature });
+
+            setTransactionLoading(false);
+            
+            handleClose();
+            toast.success("Depositted!");
+
+            const interval = setInterval(() => {
+                fetchBalance();
+                if (interval !== null) {
+                    clearInterval(interval);
+                }
+            }, 20000);
+
         } catch (e: any) {
             setTransactionLoading(false);
             const err = serializeError(e);
             toast.error(err.message);
             console.log(e, "error");
         }
-    };
+    });
 
-    const handleTransactionStatus = (hash: string) => {
-        const intervalInMilliseconds = 2000;
-        const interval = setInterval(() => {
-            getSendTransactionStatus(hash)
-                .then((res: any) => {
-                    if (res.result) {
-                        const status = Number(res.result.status);
-                        if (status === 1) {
-                            setTransactionLoading(false);
-                            fetchBalance();
-                            handleClose();
-                            toast.success("Depositted Successfully");
-                        } else {
-                            setTransactionLoading(false);
-                            toast.error("Failed to Deposit Amount. Try Again");
-                        }
-                        if (interval !== null) {
-                            clearInterval(interval);
-                        }
-                    }
-                })
-                .catch((e) => {
-                    setTransactionLoading(false);
-                    const err = serializeError(e);
-                    toast.error(err.message);
-                    console.log(e, "error");
-                });
-        }, intervalInMilliseconds);
-    };
+    // const handleDepositClick = async () => {
+    //     setTransactionLoading(true);
+    //     const toAmount = Number(inputValue) * Math.pow(10, 18);
+    //     try {
+    //         const result = await sendTransaction({
+    //             to: walletAddress,
+    //             value: parseEther(inputValue),
+    //         });
+    //         handleTransactionStatus(result.hash);
+    //     } catch (e: any) {
+    //         setTransactionLoading(false);
+    //         const err = serializeError(e);
+    //         toast.error(err.message);
+    //         console.log(e, "error");
+    //     }
+    // };
+
+    // const handleTransactionStatus = (hash: string) => {
+    //     const intervalInMilliseconds = 2000;
+    //     const interval = setInterval(() => {
+    //         getSendTransactionStatus(hash)
+    //             .then((res: any) => {
+    //                 if (res.result) {
+    //                     const status = Number(res.result.status);
+    //                     if (status === 1) {
+    //                         setTransactionLoading(false);
+    //                         fetchBalance();
+    //                         handleClose();
+    //                         toast.success("Depositted Successfully");
+    //                     } else {
+    //                         setTransactionLoading(false);
+    //                         toast.error("Failed to Deposit Amount. Try Again");
+    //                     }
+    //                     if (interval !== null) {
+    //                         clearInterval(interval);
+    //                     }
+    //                 }
+    //             })
+    //             .catch((e) => {
+    //                 setTransactionLoading(false);
+    //                 const err = serializeError(e);
+    //                 toast.error(err.message);
+    //                 console.log(e, "error");
+    //             });
+    //     }, intervalInMilliseconds);
+    // };
 
     return (
         <div>
@@ -130,9 +146,9 @@ export const DepositAmountComponent: FC<IDepositAmountComponent> = (props) => {
                                     onChange={(e) => {
                                         handleInputChange(`${e.target.value}`);
                                     }}
-                                    onWheel={() =>
-                                        (document.activeElement as HTMLElement).blur()
-                                    }
+                                    // onWheel={() =>
+                                    //     (document.activeElement as HTMLElement).blur()
+                                    // }
                                 />
                             </div>
                             <p className="text-white text-[12px] leading-[14px] text-center">

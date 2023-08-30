@@ -8,14 +8,16 @@ Built during OPOS Hackathon 2023
 
 ### Why Does it Matter?
 
-- Social and Email
+- Privacy
+    - In case you don't want to share your on-chain financial status
+- Social and Twitter
     - Send Plinks at scale via email, twitter, discord etc.,
+- Enhance your fan base
+    - Send cNFT drops link that can be claimed by your supporters only. Daily/Weekly or mass drops (with tiny fee).
 - In Real Life
     - Distribute Plinks vai QR Code or NFC Tags at in person events
-- Web Apps
-    - Place a button to distribute Plinks on your Dapp
-- Privacy
 
 ## Tech SDK
 - Shyft for gasless Transaction
 - Elusiv for Private Tx
+- Helius for Compressed NFTs

@@ -145,13 +145,22 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
 
     const topupHandler = async (e) => {
         e.preventDefault();
-        toast.info("Initiating topup...");
-        const sig = await topup(
-          elusiv,
-          LAMPORTS_PER_SOL / 10,
-          "LAMPORTS"
-        );
-        toast.success(`Topup 0.1 SOL complete with sig ${sig.signature}`);
+
+        const _inputValue = inputValue.replace(/[^\d.]/g, "");
+        if (_inputValue) {
+            toast.info(`Initiating ${_inputValue} SOL topup...`);
+
+            const sig = await topup(
+              elusiv,
+              Number(_inputValue) * Math.pow(10, 9),
+              "LAMPORTS"
+            );
+
+            fetchBalance()
+            toast.success(`Topup ${_inputValue} SOL complete with sig ${sig.signature}`);
+            const privateBalance = await elusiv.getLatestPrivateBalance("LAMPORTS");
+            setPrivateBalance(privateBalance);  
+        }
     };
 
     const send = async (
@@ -208,6 +217,11 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
         const valueWithoutDollarSign = val.replace(/[^\d.]/g, "");
         const tokenIputValue = Number(valueWithoutDollarSign) / Number(tokenPrice);
         setInputValue(getTokenValueFormatted(Number(tokenIputValue)));
+        if (Number(valueWithoutDollarSign) < Number(balanceInUsd)) {
+            setBtnDisable(false);
+        } else {
+            setBtnDisable(true);
+        }
     };
 
     const handleInputChange = (val: string) => {
@@ -352,9 +366,15 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                     if (relayResult) {
                         console.log(relayResult)
                         setChestLoadingText(
-                            "Transaction on its way! Awaiting confirmation...",
+                            "Transaction on its way...",
                         );
-                        handleTransactionStatus(relayResult, payData.url.toString());
+
+                        const interval = setInterval(() => {
+                            handleTransactionStatus(relayResult, payData.url.toString());
+                            if (interval !== null) {
+                                clearInterval(interval);
+                            }
+                        }, 15000);
                     }
                 } else {
                     try {
@@ -391,7 +411,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
 
                 console.log(payData)
 
-                setChestLoadingText("Sending 0.05 SOL");
+                setChestLoadingText(`Sending ${_inputValue} SOL`);
 
                 const destinationSigner = new Keypair(payData.keypair);
                 // const destinationEOAAddress = await destinationSigner.getAddress();
@@ -478,7 +498,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                         const sig = await send(
                             elusiv,
                             destinationSigner.publicKey,
-                            LAMPORTS_PER_SOL / 20,
+                            Number(_inputValue) * Math.pow(10, 9),
                             "LAMPORTS"
                         );
                         setChestLoadingText(
@@ -842,22 +862,37 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                     />
                                     <SecondaryBtn
                                         className={`w-[20%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
-                                            btnDisable || !value
-                                                ? "cursor-not-allowed"
+                                            btnDisable || !value || tokenValue <= Number(inputValue)
+                                                ? "cursor-not-allowed opacity-50"
                                                 : ""
                                         }`}
                                         title={"Topup"}
                                         onClick={(e) => topupHandler(e)}
+                                        btnDisable={btnDisable || !value || tokenValue <= Number(inputValue)}
                                     />
-                                    <SecondaryBtn
-                                        className={`w-[20%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
-                                            btnDisable || !value || privateBalance <= BigInt(0.05)
-                                                ? "cursor-not-allowed"
+                                    <PrimaryBtn
+                                        className={`w-[20%] lg:w-[185px] max-w-[185px] mx-0 ${
+                                            btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, 9)
+                                                ? "cursor-not-allowed opacity-50"
                                                 : ""
                                         }`}
                                         title={"Private Link"}
                                         onClick={createPrivateWallet}
+                                        btnDisable={btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, 9)}
                                     />
+                                </div>
+                            </div>
+                            <div className="relative mt-10">
+                                <div
+                                    className={`opacity-50 flex gap-2 justify-between`}
+                                >
+                                    <SecondaryBtn
+                                        className={`w-[50%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
+                                        title={"Drop cNFT Link (subscribers only)"}
+                                        onClick={(e) => {}}
+                                        btnDisable={true}
+                                    />
+
                                 </div>
                             </div>
                             {/* <PrivateSend /> */}
