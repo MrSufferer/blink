@@ -24,7 +24,7 @@ const MetaHead: FC<IMetaHead> = (props) => {
         <meta property="og:description" content={description} />
         <meta property="og:image" content={imageUrl} />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta property="twitter:domain" content="clink-safe.vercel.app" />
+        <meta property="twitter:domain" content="plink-sol.vercel.app" />
         <meta property="twitter:url" content={`https://plink-sol.vercel.app/${urlEndpoint}`} />
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={description} />
