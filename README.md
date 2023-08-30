@@ -20,4 +20,4 @@ Built during OPOS Hackathon 2023
 ## Tech SDK
 - Shyft for gasless Transaction
 - Elusiv for Private Tx
-- Helius for Compressed NFTs
+- Helius for Compressed NFTs (upcomming)
