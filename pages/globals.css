@@ -29,8 +29,8 @@ body {
     color: rgb(var(--foreground-rgb));
     background: radial-gradient(
             61.66% 83.83% at 72.76% 81.19%,
-            rgba(51, 202, 175, 0.44) 0%,
-            rgba(51, 202, 175, 0) 100%
+            rgba(128, 27, 187, 0.44) 0%,
+            rgba(138, 46, 199, 0) 100%
         ),
         #150937;
 }
@@ -60,7 +60,7 @@ body {
 }
 
 .shareLinkBg {
-    background: linear-gradient(148deg, #051923 0%, #0b254d 100%);
+    background: linear-gradient(148deg, #051923 0%, #350b4d 100%);
 }
 .inputBg {
     backdrop-filter: blur(30px);
