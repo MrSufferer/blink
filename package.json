@@ -11,7 +11,7 @@
         "lint:fix": "eslint ./ --ext .jsx,.js,.ts,.tsx --quiet --fix --ignore-path ./.gitignore"
     },
     "dependencies": {
-        "@elusiv/sdk": "^0.1.13",
+        "@elusiv/sdk": "^0.1.22",
         "@headlessui/react": "^1.7.16",
         "@noble/ed25519": "^2.0.0",
         "@rainbow-me/rainbowkit": "^1.0.8",
@@ -19,6 +19,7 @@
         "@safe-global/auth-kit": "^1.2.0",
         "@safe-global/protocol-kit": "^1.2.0",
         "@safe-global/relay-kit": "^1.2.0",
+        "@solana/spl-token": "^0.3.8",
         "@solana/wallet-adapter-base": "^0.9.23",
         "@solana/wallet-adapter-material-ui": "^0.11.0",
         "@solana/wallet-adapter-react": "^0.15.34",
@@ -35,6 +36,7 @@
         "@web3auth/no-modal": "^6.1.7",
         "@web3auth/openlogin-adapter": "^6.1.7",
         "@web3auth/solana-provider": "^6.1.7",
+        "@wormhole-foundation/wormhole-connect": "^0.1.0",
         "assert": "^2.0.0",
         "autoprefixer": "10.4.14",
         "axios": "^0.27.2",

@@ -14,9 +14,20 @@ enum SOLANA_REQUESTS {
     solBalance = "getBalance",
 }
 
-export const getBalance = async (address: string) => {
+export const getBalance = async (address: string, tokenMint?: string) => {
+    let requestFunction: string;
+    let params: any[];
+
+    if (tokenMint && tokenMint !== "SOL") {
+        requestFunction = "getTokenAccountsByOwner";
+        params = [address, { mint: tokenMint}, { encoding: "jsonParsed" }];
+    } else {
+        requestFunction = SOLANA_REQUESTS.solBalance
+        params = [address]
+    }
+
     return new Promise(function (resolve, reject) {
-        globalApiService(SOLANA_REQUESTS.solBalance, [address])
+        globalApiService(requestFunction, params)
             .then((response) => {
                 resolve(response);
             })
@@ -93,10 +104,10 @@ export const getRelayTransactionStatus = async (taskId: string) => {
     });
 };
 
-export const getUsdPrice = (): Promise<any[]> => {
+export const getUsdPrice = (tokenName?: string): Promise<any[]> => {
     const config = {
         method: "get",
-        url: "https://pro-api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&x_cg_pro_api_key=CG-3rZprwbEEjFtakNBS8mghn8H",
+        url: `https://pro-api.coingecko.com/api/v3/simple/price?ids=${tokenName}&vs_currencies=usd&x_cg_pro_api_key=CG-3rZprwbEEjFtakNBS8mghn8H`,
         headers: { "Content-Type": "application/json" },
     };
     return new Promise((resolve) => {

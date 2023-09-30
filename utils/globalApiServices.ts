@@ -1,5 +1,5 @@
 import axios from "axios";
-import { solanaDevnet } from "./chain/solana";
+import { solanaMainnet } from "./chain/solana";
 
 export const globalApiService = (method: string, params?: any) => {
     const headers = new Headers();
@@ -18,7 +18,7 @@ export const globalApiService = (method: string, params?: any) => {
         body,
     };
 
-    const jsonRpcUrl = solanaDevnet.info.url;
+    const jsonRpcUrl = solanaMainnet.info.url;
 
     return fetch(jsonRpcUrl, requestOptions)
         .then((response) => response.json())

@@ -57,6 +57,8 @@ import QrModal from "./QrModal";
 import SecondaryBtn from "./SecondaryBtn";
 import { ShareBtnModal } from "./ShareBtnModal";
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount, Account, createTransferInstruction } from "@solana/spl-token"
+
 
 export interface IShareLink {
     uuid: string;
@@ -76,7 +78,8 @@ const ShareLink: FC<IShareLink> = (props) => {
     const [wallet, setWallet] = useState("" as unknown as Wallet);
     const [shareText, setShareText] = useState("Share");
     const [showShareIcon, setShowShareIcon] = useState(true);
-    const [tokenValue, setTokenValue] = useState("");
+    const [tokenValue, setTokenValue] = useState("0");
+    const [usdcValue, setUSDCValue] = useState("");
     const [headingText, setHeadingText] = useState("Your Chest is ready to claim!");
     const [linkValueUsd, setLinkValueUsd] = useState("");
     const [isRedirected, setIsRedirected] = useState(false);
@@ -153,6 +156,7 @@ const ShareLink: FC<IShareLink> = (props) => {
                 console.log("error", "invalid identifier");
             }
             await fetchBalance(destinationSigner.publicKey);
+            await fetchUSDCBalance(destinationSigner.publicKey);
         }
     }, [uuid]);
 
@@ -161,11 +165,24 @@ const ShareLink: FC<IShareLink> = (props) => {
         const bgBal = BigNumber(balance.result.value);
         const bgNum = bgBal.dividedBy(Math.pow(10, 9)).toNumber();
         setWalletBalance(bgNum);
-        getUsdPrice().then(async (res: any) => {
+        getUsdPrice('solana').then(async (res: any) => {
             setTokenValue(getTokenValueFormatted(bgNum, 9, false));
             setIsLoading(false);
             const formatBal = bgNum * res.data.solana.usd;
             setLinkValueUsd(getCurrencyFormattedNumber(formatBal, 2, "USD", true));
+        });
+    };
+
+    const fetchUSDCBalance = async (address: string) => {
+        const tokenMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+        const balanceRaw = (await getBalance(address, tokenMint)) as any;
+        const balance = balanceRaw.result.value[0] ? balanceRaw.result.value[0]["account"]["data"]["parsed"]["info"]["tokenAmount"]["amount"] : 0
+        const bgBal = BigNumber(balance);
+        const bgNum = bgBal.dividedBy(Math.pow(10, 6)).toNumber();
+        getUsdPrice('USDC').then(async (res: any) => {
+            setUSDCValue(getTokenValueFormatted(bgNum, 6, false));
+            setIsLoading(false);
+            const formatBal = bgNum * 1;
         });
     };
 
@@ -282,7 +299,7 @@ const ShareLink: FC<IShareLink> = (props) => {
 
             console.log(feePayer)
 
-            const connection = new Connection("https://api.devnet.solana.com", 'confirmed');
+            const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||"https://api.devnet.solana.com", 'finalized');
             
             const block = await connection.getLatestBlockhash("finalized");
             const TransactionInstruction = SystemProgram.transfer({
@@ -297,8 +314,60 @@ const ShareLink: FC<IShareLink> = (props) => {
                 feePayer: new PublicKey(feePayer.result.wallet),
             }).add(TransactionInstruction);
 
+            if (usdcValue !== "0") {
+                const tokenMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                const associatedTokenProgramId = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+                const tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                const senderTokenAccountAddress = await getAssociatedTokenAddress(
+                    new PublicKey(tokenMint),
+                    new PublicKey(fromSigner.publicKey)
+                );
+               
 
-            const signedTx = await transaction.sign(fromSigner);
+                // Get the receiver's associated token account address
+                const receiverTokenAccountAddress = await getAssociatedTokenAddress(
+                    new PublicKey(tokenMint),
+                    new PublicKey(toAdd)
+                )
+
+                // Create an instruction to create the receiver's token account if it does not exist
+                const createAccountInstruction = createAssociatedTokenAccountInstruction(
+                    new PublicKey(feePayer.result.wallet),
+                    receiverTokenAccountAddress,
+                    new PublicKey(toAdd),
+                    new PublicKey(tokenMint),
+                    tokenProgramId,
+                    associatedTokenProgramId
+                )
+
+                // Check if the receiver's token account exists
+                let receiverTokenAccount: Account
+                try {
+                    receiverTokenAccount = await getAccount(
+                    connection,
+                    receiverTokenAccountAddress,
+                    "finalized",
+                    tokenProgramId
+                    )
+                } catch (e) {
+                    // If the account does not exist, add the create account instruction to the transaction
+                    transaction.add(createAccountInstruction)
+                }
+
+                // Create an instruction to transfer 1 token from the sender's token account to the receiver's token account
+                // Adjusting for decimals of the MINT
+                const transferInstruction = await createTransferInstruction(
+                    senderTokenAccountAddress,
+                    receiverTokenAccountAddress,
+                    fromSigner.publicKey,
+                    Number(usdcValue) * Math.pow(10, 6)
+                )
+
+                // Add the transfer instruction to the transaction
+                transaction.add(transferInstruction)
+            }
+
+            await transaction.sign(fromSigner);
 
             const serializedTransaction = await transaction.serialize({ requireAllSignatures: false, verifySignatures: true });
             const transactionBase64 = serializedTransaction.toString('base64');
@@ -308,7 +377,7 @@ const ShareLink: FC<IShareLink> = (props) => {
             myHeaders.append("Content-Type", "application/json");
             
             var raw = JSON.stringify({
-            "network": "devnet",
+            "network": "mainnet-beta",
             "encoded_transaction": transactionBase64
             });
             
@@ -320,6 +389,7 @@ const ShareLink: FC<IShareLink> = (props) => {
             };
             // const serializedTransaction = tx.serialize({ requireAllSignatures: false, verifySignatures: true });
             // const transactionBase64 = serializedTransaction.toString('base64');
+            // I really wanna die in my night time
             
             var relayResult = await fetch("https://api.shyft.to/sol/v1/txn_relayer/sign", reqOptions)
             .then(response => response.text())
@@ -339,7 +409,7 @@ const ShareLink: FC<IShareLink> = (props) => {
     };
 
     const handleTransactionStatus = (relayResult: any) => {
-        const intervalInMilliseconds = 2000;
+        const intervalInMilliseconds = 7000;
         const interval = setInterval(() => {
 
             if (relayResult && relayResult.success) {
@@ -363,8 +433,9 @@ const ShareLink: FC<IShareLink> = (props) => {
     const handleClaimSuccess = () => {
         setIsClaimSuccessful(true);
         setProcessing(false);
-        toast.success("Claimed Successfully");
+        toast.success("Claimed Successfully! Refresh the link!");
         fetchBalance(fromAddress);
+        fetchUSDCBalance(fromAddress);
     };
 
     useEffect(() => {
@@ -405,6 +476,7 @@ const ShareLink: FC<IShareLink> = (props) => {
                                 <div className="flex gap-1 flex-col text-start ml-3">
                                     <p className="text-[40px] text-[#F4EC97] font bold">{`${linkValueUsd}`}</p>
                                     <p className="text-sm text-white/50">{`~ ${tokenValue} SOL`}</p>
+                                    <p className="text-sm text-white/50">{`+ ${usdcValue} USDC`}</p>
                                     <div className="flex justify-around w-[100px] mx-auto mt-1.5">
                                         <Link
                                             href={`https://explorer.solana.com/address/${fromAddress}`}

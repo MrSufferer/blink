@@ -1,6 +1,6 @@
 import { CHAINS_ENUMS, CHAINS_IDS } from ".";
 
-export const solanaDevnet = {
+export const solanaMainnet = {
     index: 10,
     id: CHAINS_IDS.SOLANA,
     name: "Solana",
@@ -23,7 +23,7 @@ export const solanaDevnet = {
         accountPath: "/address/",
     },
     info: {
-        url: "https://api.devnet.solana.com",
-        rpc: process.env.NEXT_PUBLIC_RPC_URL ?? "https://api.devnet.solana.com",
+        url: process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com",
+        rpc: process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com",
     },
 };

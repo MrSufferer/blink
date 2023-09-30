@@ -26,6 +26,7 @@ import React, { FC, Fragment, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { toast } from "react-toastify";
 import { useAccount } from "wagmi";
+import WormholeBridge from '@wormhole-foundation/wormhole-connect';
 
 import { icons } from "../../utils/images";
 import { DepositAmountComponent } from "./DepositAmountComponent";
@@ -38,13 +39,14 @@ export default dynamic(() => Promise.resolve(DepositAmountModal), {
 export interface IDepositAmountModal {
     open: boolean;
     setOpen: (val: boolean) => void;
+    openWormhole: (val: boolean) => void;
     walletAddress: string;
     tokenPrice: string;
     fetchBalance: () => void;
 }
 
 export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
-    const { open, setOpen, walletAddress, tokenPrice, fetchBalance } = props;
+    const { open, setOpen, openWormhole, walletAddress, tokenPrice, fetchBalance } = props;
 
     // const { getAccount, injectConnector, connect, baseGoerli } = useWagmi();
 
@@ -79,6 +81,7 @@ export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
         },
     });
     const [showQR, setShowQr] = useState(false);
+    const [showWormhole, setShowWormhole] = useState(false)
     const [showDeposit, setShowDeposit] = useState(false);
     const [showOptions, setShowOptions] = useState(true);
     const [showPrivateSend, setShowPrivateSend] = useState(false);
@@ -116,6 +119,8 @@ export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
         setShowOptions(true);
     };
 
+
+
     if (typeof window === "object") {
         return ReactDOM.createPortal(
             <Transition.Root show={open} as={Fragment}>
@@ -132,7 +137,7 @@ export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
                         <div className="fixed inset-0 bg-black/50 transition-opacity" />
                     </Transition.Child>
 
-                    <div className="fixed inset-0 z-[1000] overflow-y-hidden md:rounded-[16px]">
+                    <div className="fixed inset-0 z-[1000] overflow-y-hidden md:rounded-[16px] overflow-y-scroll">
                         <div className="flex min-h-full items-end justify-center sm:items-center p-0">
                             <Transition.Child
                                 as={Fragment}
@@ -144,7 +149,7 @@ export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
                                 leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                             >
                                 <Dialog.Panel
-                                    className={`bg-lightGray lg:min-w-[400px] rounded-[12px] w-full lg:w-[400px]  py-5`}
+                                    className={`bg-lightGray lg:min-w-[600px] rounded-[12px] w-full lg:w-[600px]  py-5`}
                                 >
                                     {open && showOptions ? (
                                         <div className="px-4">
@@ -162,23 +167,37 @@ export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
                                             </div>
                                             <div
                                                 role="presentation"
+                                                className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer mb-5"
+                                                onClick={() => {
+                                                    setShowOptions(false);
+                                                    setShowDeposit(false);
+                                                    setOpen(false);
+                                                    openWormhole(true);
+                                                }}
+                                            >
+                                                <p className="text-center text-white">
+                                                #️⃣ Cross-chain Deposit to Solana
+                                                </p>
+                                            </div>         
+                                            <div
+                                                role="presentation"
                                                 className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
                                                 onClick={() => {
                                                     handlePublicKeyClick();
                                                 }}
                                             >
                                                 <p className="text-center text-white">
-                                                    #️⃣ Public Address
+                                                    QR
                                                 </p>
                                             </div>
                                             <div
                                                 role="presentation"
-                                                className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer mb-5"
+                                                className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
                                             >
                                                 <p className="text-center text-white">
-                                                    On-ramp (Sphere)
+                                                    On-ramp (upcoming)
                                                 </p>
-                                            </div>
+                                            </div>                                  
                                         </div>
                                     ) : showQR && !showDeposit ? (
                                         <QRComponent

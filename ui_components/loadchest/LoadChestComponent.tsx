@@ -9,6 +9,7 @@ import {
     MetaTransactionOptions,
     OperationType,
 } from "@safe-global/safe-core-sdk-types";
+import { Dialog, Transition } from "@headlessui/react";
 import { initWasm } from "@trustwallet/wallet-core";
 import { serializeError } from "eth-rpc-errors";
 import { ethers } from "ethers";
@@ -22,7 +23,7 @@ import { parseEther } from "viem";
 import bs58 from "bs58";
 import { Plink } from '../../utils/wallet/plink';
 import { getSignedSeed } from '../../utils/helpers'
-import { Keypair, Connection, Transaction, PublicKey, SystemProgram, LAMPORTS_PER_SOL, sendTransaction } from '@solana/web3.js'
+import { Keypair, Connection, Transaction, PublicKey, SystemProgram, LAMPORTS_PER_SOL, clusterApiUrl, sendAndConfirmTransaction } from '@solana/web3.js'
 import { SolanaWallet } from "@web3auth/solana-provider"
 import {
     getBalance,
@@ -30,8 +31,8 @@ import {
     getSendTransactionStatus,
     getUsdPrice,
 } from "../../apiServices";
-import { Elusiv, TokenType, SEED_MESSAGE } from "@elusiv/sdk";
-import { GlobalContext } from "../../context/GlobalContext";
+import { Elusiv, TokenType, SEED_MESSAGE, airdropToken } from "@elusiv/sdk";
+import { GlobalContext, ACTIONS } from "../../context/GlobalContext";
 import { LOGGED_IN, THandleStep } from "../../pages";
 import * as loaderAnimation from "../../public/lottie/loader.json";
 import {
@@ -46,6 +47,9 @@ import { Wallet } from "../../utils/wallet";
 import PrimaryBtn from "../PrimaryBtn";
 import SecondaryBtn from "../SecondaryBtn";
 import DepositAmountModal from "./DepositAmountModal";
+import WormholeBridge from "@wormhole-foundation/wormhole-connect";
+import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError, Account, createAssociatedTokenAccountInstruction, TokenInvalidAccountOwnerError, createTransferInstruction, getOrCreateAssociatedTokenAccount} from "@solana/spl-token"
+
 import PrivateSend from "../PrivateSend"
 import { ProfileCard } from "./ProfileCard";
 import { useWagmi } from "../../utils/wagmi/WagmiContext";
@@ -53,6 +57,7 @@ import ReactTyped from "react-typed";
 import { SolanaWalletProvider } from "../../context/SolanaWalletContext";
 import { sha512 } from "@noble/hashes/sha512";
 import * as ed from "@noble/ed25519";
+import DevelopmentBtn from "../DevelopmentBtn";
 
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 
@@ -64,7 +69,8 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     const { provider } = props;
 
     const {
-        state: { loggedInVia, address },
+        state: { loggedInVia, address, tokenProgram },
+        dispatch,
     } = useContext(GlobalContext);
 
     const router = useRouter();
@@ -78,6 +84,8 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     const [loading, setLoading] = useState(false);
     const [transactionLoading, setTransactionLoading] = useState(false);
     const [open, setOpen] = useState(false);
+    const [wormholeEnabled, setWormholeEnabled] = useState(false);
+    const [wormholeLoading, setWormholeLoading] = useState(true);
     const [toggle, setToggle] = useState(true);
     const [btnDisable, setBtnDisable] = useState(true);
     const [balanceInUsd, setBalanceInUsd] = useState("");
@@ -94,7 +102,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
 
     useEffect(() => {
         const setParams = async () => {
-            const connection = new Connection("https://api.devnet.solana.com");
+            const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "finalized");
 
             const wallet = new SolanaWallet(provider)
             setSolanaWallet(wallet)
@@ -107,7 +115,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                 signedSeed,
                 new PublicKey(accounts[0]),
                 connection,
-                "devnet"
+                "mainnet-beta"
             );
           setElusiv(elu);
           setIsElusivLoading(false);
@@ -117,16 +125,18 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     }, []);
 
     useEffect(() => {
-        const getBalance = async () => {
-          const privateBalance = await elusiv.getLatestPrivateBalance("LAMPORTS");
+        const getPrivateBalance = async () => {
+          const tokenSymbol = (tokenProgram.tokenMint == "SOL") ? "LAMPORTS" : tokenProgram.name
+          const privateBalance = await elusiv.getLatestPrivateBalance(tokenSymbol);
+        
           setPrivateBalance(privateBalance);
         //   setFetching(false);
         };
     
         if (elusiv !== null) {
-          getBalance().then(() => {});
+            getPrivateBalance().then(() => {});
         }
-    }, [elusiv]);
+    }, [elusiv, tokenProgram]);
 
     const topup = async (
         elusivInstance: Elusiv,
@@ -147,18 +157,19 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
         e.preventDefault();
 
         const _inputValue = inputValue.replace(/[^\d.]/g, "");
+        const tokenSymbol = (tokenProgram.tokenMint == "SOL") ? "LAMPORTS" : tokenProgram.name
         if (_inputValue) {
-            toast.info(`Initiating ${_inputValue} SOL topup...`);
+            toast.info(`Initiating ${_inputValue} ${tokenProgram.name} topup...`);
 
             const sig = await topup(
               elusiv,
-              Number(_inputValue) * Math.pow(10, 9),
-              "LAMPORTS"
+              Number(inputValue) * Math.pow(10, tokenProgram.decimals),
+              tokenSymbol
             );
 
             fetchBalance()
-            toast.success(`Topup ${_inputValue} SOL complete with sig ${sig.signature}`);
-            const privateBalance = await elusiv.getLatestPrivateBalance("LAMPORTS");
+            toast.success(`Topup ${_inputValue} ${tokenProgram.name} complete with sig ${sig.signature}`);
+            const privateBalance = await elusiv.getLatestPrivateBalance(tokenSymbol);
             setPrivateBalance(privateBalance);  
         }
     };
@@ -183,25 +194,31 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
         if (address) {
             fetchBalance();
         }
-    }, [address]);
+    }, [address, tokenProgram]);
 
     const fetchBalance = async () => {
         setLoading(true);
-        getUsdPrice()
+        const tokenName = tokenProgram.tokenMint === "SOL" ? "solana" : tokenProgram.name
+        getUsdPrice(tokenName)
             .then(async (res: any) => {
-                setTokenPrice(res.data.solana.usd);
+                setTokenPrice(res.data[tokenName] ? res.data[tokenName]["usd"] : 1);
                 setFromAddress(address);
-                const balance = (await getBalance(address)) as any;
-                console.log(balance)
+                const balanceRaw = (await getBalance(address, tokenProgram.tokenMint)) as any;
+                console.log(balanceRaw)
+
+                const balance =  
+                    balanceRaw.result.value[0] ? balanceRaw.result.value[0]["account"]["data"]["parsed"]["info"]["tokenAmount"]["amount"]
+                    : balanceRaw.result.value
+
                 setTokenValue(
                     getTokenFormattedNumber(
-                        balance.result.value as unknown as string,
-                        9,
+                        balance as unknown as string,
+                        tokenProgram.decimals,
                     ),
                 );
                 const formatBal = (
-                    (balance.result.value / Math.pow(10, 9)) *
-                    res.data.solana.usd
+                    (balance / Math.pow(10, tokenProgram.decimals)) *
+                    (res.data[tokenName] ? res.data[tokenName]["usd"] : 1)
                 ).toFixed(3);
                 setPrice(getCurrencyFormattedNumber(formatBal));
                 setBalanceInUsd(formatBal);
@@ -239,6 +256,27 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
             setBtnDisable(true);
         }
     };
+
+    const handleTokenProgramChange = async (e: any) => {
+        e.preventDefault();
+
+        const tokenProgram = e.target.value;
+        const tokenSplits = tokenProgram.split("-");
+        const isNative = (tokenSplits[0] === "SOL") ? true : false;
+
+        dispatch({
+            type: ACTIONS.SET_TOKEN_PROGRAM,
+            payload: {tokenMint: tokenSplits[0], isNative, name: tokenSplits[1], decimals: Number(tokenSplits[2])},
+        });
+    }
+
+    const handleOpenWormhole = (val: boolean) => {
+        setWormholeEnabled(true)
+
+        setTimeout(() => {
+            setWormholeLoading(false);
+        }, 1000);
+    }
 
     const createWallet = async () => {
         const _inputValue = inputValue.replace(/[^\d.]/g, "");
@@ -279,7 +317,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                         "Initializing wallet for transaction relay",
                     );
                     var myHeaders = new Headers();
-                    myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY);
+                    myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY || "");
                     
                     var requestOptions = {
                       method: 'POST',
@@ -318,23 +356,101 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
 
                     console.log(feePayer)
 
-                    const connection = new Connection("https://api.devnet.solana.com", 'confirmed');
-                    
+                    const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", 'finalized');                
                     const block = await connection.getLatestBlockhash("finalized");
-                    const TransactionInstruction = SystemProgram.transfer({
-                        fromPubkey: new PublicKey(address),
-                        toPubkey: new PublicKey(destinationSigner.publicKey),
-                        lamports: Number(inputValue) * Math.pow(10, 9),
-                    });
 
                     const transaction = new Transaction({
                         blockhash: block.blockhash,
                         lastValidBlockHeight: block.lastValidBlockHeight,
                         feePayer: new PublicKey(feePayer.result.wallet),
-                    }).add(TransactionInstruction);
+                    })
 
+                    const associatedTokenProgramId = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+                    const tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                    
+                    if (tokenProgram.isNative) {
+                        const TransactionInstruction = SystemProgram.transfer({
+                            fromPubkey: new PublicKey(address),
+                            toPubkey: new PublicKey(destinationSigner.publicKey),
+                            lamports: Number(inputValue) * Math.pow(10, 9),
+                        });
+
+                        transaction.add(TransactionInstruction);
+                    } else {
+
+                        const senderTokenAccountAddress = await getAssociatedTokenAddress(
+                            new PublicKey(tokenProgram.tokenMint),
+                            new PublicKey(address)
+                        );
+
+                        const createInstruction = createAssociatedTokenAccountInstruction(
+                            new PublicKey(feePayer.result.wallet),
+                            senderTokenAccountAddress,
+                            new PublicKey(address),
+                            new PublicKey(tokenProgram.tokenMint),
+                            tokenProgramId,
+                            associatedTokenProgramId
+                        )
+
+                        // Check if the receiver's token account exists
+                        let senderTokenAccount: Account
+                        try {
+                            senderTokenAccount = await getAccount(
+                            connection,
+                            senderTokenAccountAddress,
+                            "finalized",
+                            tokenProgramId
+                            )
+                        } catch (e) {
+                            // If the account does not exist, add the create account instruction to the transaction
+                            transaction.add(createInstruction)
+                        }                 
+
+                        // Get the receiver's associated token account address
+                        const receiverTokenAccountAddress = await getAssociatedTokenAddress(
+                            new PublicKey(tokenProgram.tokenMint),
+                            destinationSigner.publicKey
+                        )
+
+                        // Create an instruction to create the receiver's token account if it does not exist
+                        const createAccountInstruction = createAssociatedTokenAccountInstruction(
+                            new PublicKey(feePayer.result.wallet),
+                            receiverTokenAccountAddress,
+                            destinationSigner.publicKey,
+                            new PublicKey(tokenProgram.tokenMint),
+                            tokenProgramId,
+                            associatedTokenProgramId
+                        )
+
+                        // Check if the receiver's token account exists
+                        let receiverTokenAccount: Account
+                        try {
+                            receiverTokenAccount = await getAccount(
+                            connection,
+                            receiverTokenAccountAddress,
+                            "finalized",
+                            tokenProgramId
+                            )
+                        } catch (e) {
+                            // If the account does not exist, add the create account instruction to the transaction
+                            transaction.add(createAccountInstruction)
+                        }
+
+                        // Create an instruction to transfer 1 token from the sender's token account to the receiver's token account
+                        // Adjusting for decimals of the MINT
+                        const transferInstruction = await createTransferInstruction(
+                            senderTokenAccountAddress,
+                            receiverTokenAccountAddress,
+                            new PublicKey(address),
+                            Number(inputValue) * Math.pow(10, tokenProgram.decimals)
+                        )
+
+                        // Add the transfer instruction to the transaction
+                        transaction.add(transferInstruction)
+
+                    }
                     // we need a get the solana wallet to sign here
-                    const solanaWallet = new SolanaWallet(provider);
+                    // const solanaWallet = new SolanaWallet(provider);
 
                     const signedTx = await solanaWallet.signTransaction(transaction);
 
@@ -342,11 +458,11 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                     const transactionBase64 = serializedTransaction.toString('base64');
 
                     var myHeaders = new Headers();
-                    myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY);
+                    myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY || "");
                     myHeaders.append("Content-Type", "application/json");
                     
                     var raw = JSON.stringify({
-                    "network": "devnet",
+                    "network": "mainnet-beta",
                     "encoded_transaction": transactionBase64
                     });
                     
@@ -495,11 +611,12 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                     if (privateBalance > BigInt(0)) {
                         // Send half a SOL
                         setChestLoadingText("It should take a bit long...You may need a coffee");
+                        const tokenSymbol = (tokenProgram.tokenMint == "SOL") ? "LAMPORTS" : tokenProgram.name
                         const sig = await send(
                             elusiv,
                             destinationSigner.publicKey,
-                            Number(_inputValue) * Math.pow(10, 9),
-                            "LAMPORTS"
+                            Number(_inputValue) * Math.pow(10, tokenProgram.decimals),
+                            tokenSymbol
                         );
                         setChestLoadingText(
                             `Operation Successful: Transaction Completed with sig ${sig.signature}`,
@@ -658,7 +775,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     };
 
     return (
-        <div className="mx-auto relative max-w-[400px]">
+        <div className="mx-auto relative flex items-center justify-center">
             <ToastContainer
                 toastStyle={{ backgroundColor: "#282B30" }}
                 className={`w-50`}
@@ -671,8 +788,8 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                 rtl={false}
                 theme="dark"
             />
-            {!transactionLoading ? (
-                <div>
+            {(!wormholeEnabled && !transactionLoading) ? (
+                <div className="max-w-[400px]">
                     <ProfileCard
                         balance={price}
                         showActivity={false}
@@ -706,7 +823,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                             {price}
                                                         </p>
                                                         <p className="text-white/30 text-[14px] leading-[14px]">
-                                                            {tokenValue} SOL
+                                                            {tokenValue + " " + tokenProgram.name}
                                                         </p>
                                                     </div>
                                                 )
@@ -718,7 +835,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                             ) : (
                                                 <div>
                                                     <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
-                                                        ~ {tokenValue} SOL
+                                                        ~ {tokenValue + " " + tokenProgram.name}
                                                     </p>
                                                     <p className="text-white/30 text-[12px] leading-[14px]">
                                                         {price}
@@ -739,7 +856,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                 ) : (
                                                     <div>
                                                         <p className="text-white/60 text-[14px] font-semibold leading-10">
-                                                            {Number(privateBalance) / Math.pow(10, 9)} SOL
+                                                            {Number(privateBalance) / Math.pow(10, tokenProgram.decimals) + " " + tokenProgram.name}
                                                         </p>
                                                     </div>
                                                 )
@@ -751,7 +868,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                             ) : (
                                                 <div>
                                                     <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
-                                                        ~ {privateBalance.toString()} SOL
+                                                        ~ {privateBalance.toString() + " " + tokenProgram.name}
                                                     </p>
                                                     <p className="text-white/30 text-[12px] leading-[14px]">
                                                         {price}
@@ -761,10 +878,11 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Image src={icons.solLogo} alt="transferIcon" />
-                                        <p className="text-white text-[24px] font-normal leading-9">
-                                            SOL
-                                        </p>
+                                        <Image src={(tokenProgram.tokenMint == "SOL") ? icons.solLogo: icons.usdcIcon} alt="transferIcon" />
+                                        <select value={tokenProgram.tokenMint + "-" + tokenProgram.name + "-" + tokenProgram.decimals} onChange={handleTokenProgramChange}>
+                                            <option value="SOL-SOL-9">SOL</option>
+                                            <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v-USDC-6">USDC</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div
@@ -806,7 +924,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                             </div>
                                             {Number(inputValue) > 0 && (
                                                 <p className="text-white/30 text-[12px] leading-[14px] text-center">
-                                                    ~ {inputValue} SOL
+                                                    ~ {inputValue + " " + tokenProgram.name}
                                                 </p>
                                             )}
                                         </div>
@@ -872,35 +990,51 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                     />
                                     <PrimaryBtn
                                         className={`w-[20%] lg:w-[185px] max-w-[185px] mx-0 ${
-                                            btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, 9)
+                                            btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, tokenProgram.decimals)
                                                 ? "cursor-not-allowed opacity-50"
                                                 : ""
                                         }`}
                                         title={"Private Link"}
                                         onClick={createPrivateWallet}
-                                        btnDisable={btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, 9)}
+                                        btnDisable={btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, tokenProgram.decimals)}
                                     />
                                 </div>
                             </div>
                             <div className="relative mt-10">
                                 <div
-                                    className={`opacity-50 flex gap-2 justify-between`}
+                                    className={`flex gap-2 justify-center items-center`}
                                 >
-                                    <SecondaryBtn
+                                    <DevelopmentBtn
                                         className={`w-[50%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
-                                        title={"Drop cNFT Link (subscribers only)"}
+                                        title={"Invoice Request"}
+                                        rightImage={icons.usdcIcon}
                                         onClick={(e) => {}}
                                         btnDisable={true}
                                     />
-
                                 </div>
                             </div>
-                            {/* <PrivateSend /> */}
-
+                            <div className="relative mt-5">
+                                <div
+                                    className={`flex gap-2 justify-between`}
+                                >
+                                    <DevelopmentBtn
+                                        className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
+                                        title={"cNFT Drops Link (token-gated)"}
+                                        onClick={(e) => {}}
+                                        btnDisable={true}
+                                    />
+                                    <DevelopmentBtn
+                                        className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
+                                        title={"Vault Instant Link (highest degen APR)"}
+                                        onClick={(e) => {}}
+                                        btnDisable={true}
+                                    />
+                                </div>
+                            </div>
                         </>
                     ) : null}
                 </div>
-            ) : (
+            ) : (transactionLoading ? (
                 <div className="w-[full] max-w-[600px] h-full relative flex flex-col text-center items-center gap-5 mx-auto mt-20">
                     <ReactTyped
                         className="text-white text-[24px]"
@@ -910,14 +1044,28 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                     />
                     <Lottie animationData={loaderAnimation} />
                 </div>
-            )}
+            ) : (
+                <div className="lg:min-w-[600px] rounded-[12px] h-full relative justify-center items-center text-center mx-auto mt-20">
+                    <WormholeBridge />
+                    { wormholeLoading && 
+                        <ReactTyped
+                        className="text-white text-[24px]"
+                        strings={["Wormhole loading...."]}
+                        typeSpeed={40}
+                        loop={true} 
+                        />
+                    }
+                </div>
+            ))}
             <DepositAmountModal
                 open={open}
                 setOpen={setOpen}
+                openWormhole={handleOpenWormhole}
                 walletAddress={fromAddress}
                 tokenPrice={tokenPrice}
                 fetchBalance={fetchBalance}
             />
+
         </div>
     );
 };

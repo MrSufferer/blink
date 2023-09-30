@@ -10,6 +10,7 @@ export enum ACTIONS {
     GOOGLE_USER_INFO = "GOOGLE_USER_INFO",
     LOGGED_IN_VIA = "LOGGED_IN_VIA",
     LOGOUT = "LOGOUT",
+    SET_TOKEN_PROGRAM = "SET_TOKEN_PROGRAM",
 }
 
 export type TInitialStateType = {
@@ -18,12 +19,20 @@ export type TInitialStateType = {
     googleUserInfo: any;
     loggedInVia: string;
     isConnected: boolean;
+    tokenProgram: TTokenType
 };
 
 export type TActionType = {
     type: string;
     payload: unknown;
 };
+
+export type TTokenType = {
+    tokenMint: string;
+    name: string;
+    decimals: number;
+    isNative: boolean;
+}
 
 type TToastType = {
     message: string;
@@ -45,6 +54,12 @@ const initialState: TInitialStateType = {
     googleUserInfo: {},
     loggedInVia: "",
     isConnected: false,
+    tokenProgram: {
+        tokenMint: "SOL",
+        name: "SOL",
+        decimals: 9,
+        isNative: true,
+    }
 };
 
 export const GlobalContext = createContext<TGlobalContextType>({
@@ -129,6 +144,12 @@ function reducer(state: TInitialStateType, action: TActionType) {
                 isConnected: false,
                 address: "",
             };
+        }
+        case ACTIONS.SET_TOKEN_PROGRAM: {
+            return {
+                ...state,
+                tokenProgram: action.payload as TTokenType
+            }
         }
         default:
             return state;

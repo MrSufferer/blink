@@ -21,6 +21,8 @@ import shareBtnIcon from "../../public/assets/images/share_btn_icon.svg";
 import shareBtnIconWhite from "../../public/assets/images/share_btn_icon_white.svg";
 import tchest from "../../public/assets/images/tchest.png";
 import tchestopen from "../../public/assets/images/tchestopen.png";
+import barrierIcon from "../../public/assets/images/barrier_icon.svg";
+import usdcIcon from "../../public/assets/images/usdc_logo.svg";
 import telegramBlue from "../../public/assets/images/telegram_blue.svg";
 import tokensLoading from "../../public/assets/images/tokens_loading.png";
 import transferIcon from "../../public/assets/images/transfer_icon.svg";
@@ -55,7 +57,9 @@ export type TImages =
     | "linkWhite"
     | "qrWhite"
     | "ethLogo"
-    | "solLogo";
+    | "solLogo"
+    | "barrierIcon"
+    | "usdcIcon";
 
 export type TNextImage = {
     src: string;
@@ -92,4 +96,6 @@ export const icons: Record<TImages, TNextImage> = {
     copyIconWhite,
     linkWhite,
     qrWhite,
+    barrierIcon,
+    usdcIcon
 };
