@@ -230,7 +230,6 @@ const ShareLink: FC<IShareLink> = (props) => {
             setToAddress(publicKey);
             handleCloseClaimModal();
             sendToken(publicKey);
-            toast.success("Claiming Token....");
         }
     }, [isConnecting]);
 
@@ -409,6 +408,8 @@ const ShareLink: FC<IShareLink> = (props) => {
 
     const handleTransactionStatus = (relayResult: any) => {
         const intervalInMilliseconds = 10000;
+        toast.success("Claiming Token....");
+
         const interval = setInterval(() => {
 
             if (relayResult && relayResult.success) {

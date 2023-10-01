@@ -843,7 +843,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="flex items-start gap-3 my-2">
+                                        <div className="flex items-start gap-3">
                                             <p className="text-[#798593] text-[14px] font-semibold leading-10">
                                                 Private Balance:
                                             </p>
@@ -856,7 +856,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                 ) : (
                                                     <div>
                                                         <p className="text-white/60 text-[14px] font-semibold leading-10">
-                                                            {Number(privateBalance) / Math.pow(10, tokenProgram.decimals) + " " + tokenProgram.name + " (fee: ~0.1)"}
+                                                            {Number(privateBalance) / Math.pow(10, tokenProgram.decimals) + " " + tokenProgram.name}
                                                         </p>
                                                     </div>
                                                 )
@@ -875,6 +875,11 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                     </p>
                                                 </div>
                                             )}
+                                        </div>
+                                        <div className="flex items-start">
+                                            <p className="text-white/60 text-[12px] font-semibold">
+                                                Fee: ~0.1
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
