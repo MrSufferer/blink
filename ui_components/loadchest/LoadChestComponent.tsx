@@ -856,7 +856,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                 ) : (
                                                     <div>
                                                         <p className="text-white/60 text-[14px] font-semibold leading-10">
-                                                            {Number(privateBalance) / Math.pow(10, tokenProgram.decimals) + " " + tokenProgram.name}
+                                                            {Number(privateBalance) / Math.pow(10, tokenProgram.decimals) + " " + tokenProgram.name + " (fee: ~0.1)"}
                                                         </p>
                                                     </div>
                                                 )

@@ -1,7 +1,7 @@
 export const projectId =
     "BI5-250tyqwU_79yFve_chx6hiE-f8iCxPHe0oqDpv-xU9dvGJ1p3JLo1y0AqzlMKDoZ_w0NLjxIFyNhxXJ6L6Y";
 export const oauthClientId =
-    "616586977044-sm9horct65hjethiirp0quemd9msk76f.apps.googleusercontent.com";
+    process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || "616586977044-sm9horct65hjethiirp0quemd9msk76f.apps.googleusercontent.com";
 export const web3AuthVerifier = "plink-google-verifier";
 export const web3AuthLoginType = "google";
 export const web3AuthClientId =

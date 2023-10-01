@@ -182,7 +182,6 @@ const ShareLink: FC<IShareLink> = (props) => {
         getUsdPrice('USDC').then(async (res: any) => {
             setUSDCValue(getTokenValueFormatted(bgNum, 6, false));
             setIsLoading(false);
-            const formatBal = bgNum * 1;
         });
     };
 
@@ -409,7 +408,7 @@ const ShareLink: FC<IShareLink> = (props) => {
     };
 
     const handleTransactionStatus = (relayResult: any) => {
-        const intervalInMilliseconds = 7000;
+        const intervalInMilliseconds = 10000;
         const interval = setInterval(() => {
 
             if (relayResult && relayResult.success) {
