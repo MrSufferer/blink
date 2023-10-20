@@ -32,6 +32,7 @@ import { icons } from "../../utils/images";
 import { DepositAmountComponent } from "./DepositAmountComponent";
 import PrivateSend from "../PrivateSend"
 import { QRComponent } from "./QRComponent";
+import { TTokenType } from "../../context/GlobalContext";
 
 export default dynamic(() => Promise.resolve(DepositAmountModal), {
     ssr: false,
@@ -43,6 +44,7 @@ export interface IDepositAmountModal {
     walletAddress: string;
     tokenPrice: string;
     fetchBalance: () => void;
+    tokenProgram: TTokenType;
 }
 
 export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
@@ -213,6 +215,7 @@ export const DepositAmountModal: FC<IDepositAmountModal> = (props) => {
                                                 walletAddress={walletAddress}
                                                 handleClose={handleClose}
                                                 fetchBalance={fetchBalance}
+                                                tokenProgram={props.tokenProgram}
                                             />
                                         )
                                     )}

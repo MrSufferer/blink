@@ -3,7 +3,7 @@ import _sodium from "libsodium-wrappers-sumo";
 import { encode as b58encode, decode as b58decode } from "bs58";
 
 const DEFAULT_PLINK_KEYLENGTH = 12;
-const PLINK_ORIGIN = "https://plink-sol.vercel.app";
+const PLINK_ORIGIN = process.env.NEXT_PUBLIC_HOST_LINK;
 const PLINK_PATH = "/i"
 
 const getSodium = async () => {

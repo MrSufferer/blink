@@ -69,7 +69,7 @@ const ShareLink: FC<IShareLink> = (props) => {
     const { connection } = useConnection();
     const { publicKey, sendTransaction, connecting: isConnecting, connected, disconnecting } = useWallet();
     const {
-        state: { isConnected },
+        state: { isConnected, tokenProgram },
     } = useContext(GlobalContext);
     const { uuid } = props;
     const [toAddress, setToAddress] = useState("");
@@ -128,7 +128,7 @@ const ShareLink: FC<IShareLink> = (props) => {
             // const walletCore = await initWasm();
             // const wallet = new Wallet(walletCore);
             // setWallet(wallet);
-            const plink = await Plink.fromLink("https://plink-sol.vercel.app/" + uuid)
+            const plink = await Plink.fromLink(process.env.NEXT_PUBLIC_HOST_LINK + uuid)
             
             const destinationSigner = new Keypair(plink.keypair)
             // const account = wallet.getAccountFromPayLink(uuid);
@@ -165,7 +165,7 @@ const ShareLink: FC<IShareLink> = (props) => {
         const bgBal = BigNumber(balance.result.value);
         const bgNum = bgBal.dividedBy(Math.pow(10, 9)).toNumber();
         setWalletBalance(bgNum);
-        getUsdPrice('solana').then(async (res: any) => {
+        await getUsdPrice('solana').then(async (res: any) => {
             setTokenValue(getTokenValueFormatted(bgNum, 9, false));
             setIsLoading(false);
             const formatBal = bgNum * res.data.solana.usd;
@@ -182,6 +182,9 @@ const ShareLink: FC<IShareLink> = (props) => {
         getUsdPrice('USDC').then(async (res: any) => {
             setUSDCValue(getTokenValueFormatted(bgNum, 6, false));
             setIsLoading(false);
+            if (bgNum > 0) {
+                setLinkValueUsd(getCurrencyFormattedNumber(bgNum, 2, "USD", true));
+            }
         });
     };
 
@@ -246,7 +249,7 @@ const ShareLink: FC<IShareLink> = (props) => {
             //     value: walletBalanceHex,
             // })) as any;
 
-            const fromLink = await Plink.fromLink("https://plink-sol.vercel.app/" + uuid);
+            const fromLink = await Plink.fromLink(process.env.NEXT_PUBLIC_HOST_LINK + uuid);
 
             // const ethersProvider = new ethers.providers.JsonRpcProvider(
             //     BaseGoerli.info.rpc,
@@ -394,9 +397,12 @@ const ShareLink: FC<IShareLink> = (props) => {
             .then(result => JSON.parse(result))
             .catch(error => console.log('error', error));
 
-            if (relayResult) {
+            if (relayResult && relayResult.success) {
                 console.log(relayResult)
                 handleTransactionStatus(relayResult);
+            } else {
+                setProcessing(false);
+                toast.error("Failed to Claim!");
             }
 
         } catch (e: any) {
@@ -407,26 +413,39 @@ const ShareLink: FC<IShareLink> = (props) => {
     };
 
     const handleTransactionStatus = (relayResult: any) => {
-        const intervalInMilliseconds = 10000;
+        const intervalInMilliseconds = 2000;
         toast.success("Claiming Token....");
+        const maxRetry = 20;
+        var currentIndex = 0;
 
         const interval = setInterval(() => {
+            currentIndex++;
 
-            if (relayResult && relayResult.success) {
-                // if (task.taskState === "ExecSuccess") {
+            connection.getSignatureStatus(relayResult.result.tx)
+            .then((res: any) => {
+                console.log(res.value)
+
+                if (interval !== null && currentIndex >= maxRetry) {
+                    setProcessing(false);
+                    toast.error("Failed to Claim!");
+                    clearInterval(interval);
+                }
+
+                if (res.value.confirmationStatus === "finalized") {
                     handleClaimSuccess();
                     if (interval !== null) {
                         clearInterval(interval);
                     }
-                // }
-            } else {
+                }
+            })
+            .catch(error => {
                 setProcessing(false);
                 const err = serializeError("Failed to Claim! Maybe out of gas fee");
                 toast.error(err.message);
                 if (interval !== null) {
                     clearInterval(interval);
                 }
-            }
+            });
         }, intervalInMilliseconds);
     };
 
@@ -475,8 +494,10 @@ const ShareLink: FC<IShareLink> = (props) => {
                             <div className="flex justify-between">
                                 <div className="flex gap-1 flex-col text-start ml-3">
                                     <p className="text-[40px] text-[#F4EC97] font bold">{`${linkValueUsd}`}</p>
-                                    <p className="text-sm text-white/50">{`~ ${tokenValue} SOL`}</p>
-                                    <p className="text-sm text-white/50">{`+ ${usdcValue} USDC`}</p>
+                                    { usdcValue !== "0"
+                                    ? <p className="text-sm text-white/50">{`~ ${usdcValue} USDC`}</p>
+                                    : <p className="text-sm text-white/50">{`~ ${tokenValue} SOL`}</p>
+                                    }
                                     <div className="flex justify-around w-[100px] mx-auto mt-1.5">
                                         <Link
                                             href={`https://explorer.solana.com/address/${fromAddress}`}

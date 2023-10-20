@@ -92,10 +92,15 @@ export const getSendTransactionStatus = async (hash: string) => {
     });
 };
 
-export const getRelayTransactionStatus = async (taskId: string) => {
+export const getRelayTransactionStatus = async (txnSignature: string) => {
+    var myHeaders = new Headers();
+    myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY || "");
+
     return new Promise(function (resolve, reject) {
         getApiService({
-            url: `https://relay.gelato.digital/tasks/status/${taskId}`,
+            url: `https://api.shyft.to/sol/v1/transaction/parsed?network=mainnet-beta&txn_signature=${txnSignature}`,
+            method: 'GET',
+            requestHeader: myHeaders
         })
             .then((response) => {
                 resolve(response);

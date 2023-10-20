@@ -31,7 +31,7 @@ import {
     getSendTransactionStatus,
     getUsdPrice,
 } from "../../apiServices";
-import { Elusiv, TokenType, SEED_MESSAGE, airdropToken } from "@elusiv/sdk";
+import { Elusiv, TokenType, SEED_MESSAGE, SendTxData } from "@elusiv/sdk";
 import { GlobalContext, ACTIONS } from "../../context/GlobalContext";
 import { LOGGED_IN, THandleStep } from "../../pages";
 import * as loaderAnimation from "../../public/lottie/loader.json";
@@ -47,7 +47,7 @@ import { Wallet } from "../../utils/wallet";
 import PrimaryBtn from "../PrimaryBtn";
 import SecondaryBtn from "../SecondaryBtn";
 import DepositAmountModal from "./DepositAmountModal";
-import WormholeBridge from "@wormhole-foundation/wormhole-connect";
+import WormholeBridge, { WormholeConnectConfig } from "@wormhole-foundation/wormhole-connect";
 import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError, Account, createAssociatedTokenAccountInstruction, TokenInvalidAccountOwnerError, createTransferInstruction, getOrCreateAssociatedTokenAccount} from "@solana/spl-token"
 
 import PrivateSend from "../PrivateSend"
@@ -65,6 +65,12 @@ ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 export interface ILoadChestComponent {
     provider?: any;
 }
+
+export type ElusivFeeCalcInfo = {
+    amount: number,
+    tokenType: string
+}
+
 export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     const { provider } = props;
 
@@ -95,6 +101,23 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     const [isElusivLoading, setIsElusivLoading] = useState(true);
     const [solanaWallet, setSolanaWallet] = useState<SolanaWallet>();
     const [elusiv, setElusiv] = useState<Elusiv>(null);
+    const [privateFee, setPrivateFee] = useState(0);
+
+    const wormholeConfig: WormholeConnectConfig =  {
+        env:"mainnet", 
+        mode:"dark", 
+        networks: ["ethereum", "polygon", "solana"],
+        rpcs: {
+            ethereum: "https://rpc.ankr.com/eth",
+            solana: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+        },
+        bridgeDefaults: { 
+            fromNetwork:"ethereum", 
+            toNetwork:"solana", 
+            token: tokenProgram.isNative ? "WSOL" : "USDCeth", 
+            requiredNetwork:"solana"
+        },
+    }
 
     const handleToggle = () => {
         setToggle(!toggle);
@@ -115,10 +138,10 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                 signedSeed,
                 new PublicKey(accounts[0]),
                 connection,
-                "mainnet-beta"
+                'mainnet-beta'
             );
-          setElusiv(elu);
-          setIsElusivLoading(false);
+            setElusiv(elu);
+            setIsElusivLoading(false);
         };
     
         setParams();
@@ -127,10 +150,11 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     useEffect(() => {
         const getPrivateBalance = async () => {
           const tokenSymbol = (tokenProgram.tokenMint == "SOL") ? "LAMPORTS" : tokenProgram.name
+          setPrivateFee(0)
+          
+          console.log("getPrivateBalance..")
           const privateBalance = await elusiv.getLatestPrivateBalance(tokenSymbol);
-        
           setPrivateBalance(privateBalance);
-        //   setFetching(false);
         };
     
         if (elusiv !== null) {
@@ -145,6 +169,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
       ) => {
         // Build our topup transaction
         const topupTx = await elusivInstance.buildTopUpTx(amount, tokenType);
+        console.log(topupTx)
         // Sign it (only needed for topups, as we're topping up from our public key there)
 
         const signedTx = await solanaWallet.signTransaction(topupTx.tx) as Transaction;
@@ -180,12 +205,21 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
         amount: number,
         tokenType: TokenType
       ) => {
+        const estimatedFee = await elusivInstance.estimateSendFee({ amount, recipient, tokenType });
+
+        const fee = estimatedFee.txFee + estimatedFee.tokenAccRent + estimatedFee.privacyFee;
+        const feeInFormat = fee / Math.pow(10, tokenProgram.decimals);
+        setPrivateFee(feeInFormat)
+
+        toast.warning("Fee for sending is " + feeInFormat)
+
         // Build the send transaction
         const sendTx = await elusivInstance.buildSendTx(
           amount,
           recipient,
           tokenType
         );
+
         // Send it off!
         return elusivInstance.sendElusivTx(sendTx);
     };
@@ -478,19 +512,17 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                     var relayResult = await fetch("https://api.shyft.to/sol/v1/txn_relayer/sign", reqOptions)
                     .then(response => response.text())
                     .then(result => JSON.parse(result))
-                    .catch(error => console.log('error', error));
-                    if (relayResult) {
+
+                    if (relayResult && relayResult.success) {
                         console.log(relayResult)
                         setChestLoadingText(
                             "Transaction on its way...",
                         );
 
-                        const interval = setInterval(() => {
-                            handleTransactionStatus(relayResult, payData.url.toString());
-                            if (interval !== null) {
-                                clearInterval(interval);
-                            }
-                        }, 15000);
+                        handleTransactionStatus(relayResult, payData.url.toString());
+                    } else {
+                        setTransactionLoading(false);
+                        toast.error(relayResult.error || relayResult.message);
                     }
                 } else {
                     try {
@@ -686,26 +718,54 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     };
 
     const handleTransactionStatus = (relayResult: any, link: string) => {
+        const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "finalized");
         const intervalInMilliseconds = 2000;
-        const interval = setInterval(() => {
-            if (loggedInVia === LOGGED_IN.GOOGLE) {
-                if (relayResult && relayResult.success) {
+        const maxRetry = 20;
 
-                        setChestLoadingText(
-                            "Operation Successful: Transaction Completed!",
-                        );
-                        router.push(link);
-                        if (interval !== null) {
+        let currentIndex = 0;
+
+        const interval = setInterval(() => {
+            currentIndex++;
+            if (loggedInVia === LOGGED_IN.GOOGLE) {
+
+                var myHeaders = new Headers();
+                myHeaders.append("x-api-key", process.env.NEXT_PUBLIC_SHYFT_API_KEY || "");
+                
+                var requestOptions = {
+                  method: 'GET',
+                  headers: myHeaders,
+                  redirect: 'follow'
+                };
+                // fetch(`https://api.shyft.to/sol/v1/transaction/parsed?network=mainnet-beta&txn_signature=${relayResult.result.tx}`, requestOptions)
+
+                connection.getSignatureStatus(relayResult.result.tx)
+                    .then((res: any) => {
+                        console.log(res.value)
+
+                        if (interval !== null && currentIndex >= maxRetry) {
+                            setTransactionLoading(false);
+                            toast.error("Failed to Load Chest. Try Again");
                             clearInterval(interval);
                         }
 
-                } else {
-                    setTransactionLoading(false);
-                    toast.error("Failed to Load Chest. Try Again");
-                    if (interval !== null) {
-                        clearInterval(interval);
-                    }
-                }
+                        if (res.value.confirmationStatus === "finalized") {
+                            setChestLoadingText(
+                                "Operation Successful: Transaction Completed!",
+                            );
+                            router.push(link);
+                            if (interval !== null) {
+                                clearInterval(interval);
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.log('error', error)
+                        setTransactionLoading(false);
+                        toast.error("Failed to Load Chest. Try Again");
+                        if (interval !== null) {
+                            clearInterval(interval);
+                        }
+                    });
                 // getRelayTransactionStatus(hash)
                 //     .then((res: any) => {
                 //         if (res) {
@@ -740,6 +800,8 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                 //         }
                 //     });
             } else {
+                setTransactionLoading(false);
+                toast.error("Failed to Load Chest. Try Again");
                 // getSendTransactionStatus(hash)
                 //     .then((res: any) => {
                 //         if (res.result) {
@@ -876,11 +938,13 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                 </div>
                                             )}
                                         </div>
+                                        { privateFee > 0 &&
                                         <div className="flex items-start">
                                             <p className="text-white/60 text-[12px] font-semibold">
-                                                Fee: ~0.1
+                                               Private Fee: {privateFee} {tokenProgram.name}
                                             </p>
                                         </div>
+                                        }
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Image src={(tokenProgram.tokenMint == "SOL") ? icons.solLogo: icons.usdcIcon} alt="transferIcon" />
@@ -967,41 +1031,34 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                             </div>
                             <div className="relative mt-10">
                                 <div
-                                    className={`${
-                                        !btnDisable && value
-                                            ? "opacity-100"
-                                            : "opacity-50"
-                                    } flex gap-2 justify-between`}
+                                    className={`flex gap-2 justify-between`}
                                 >
                                     <PrimaryBtn
                                         className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 ${
-                                            btnDisable || !value
-                                                ? "cursor-not-allowed"
+                                            !btnDisable || !value || tokenValue <= Number(inputValue)
+                                                ? "cursor-not-allowed opacity-50"
                                                 : ""
                                         }`}
                                         title={"Create Link"}
                                         onClick={createWallet}
-                                        btnDisable={btnDisable || !value}
                                     />
                                     <SecondaryBtn
                                         className={`w-[20%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
-                                            btnDisable || !value || tokenValue <= Number(inputValue)
+                                            !value || tokenValue <= Number(inputValue)
                                                 ? "cursor-not-allowed opacity-50"
                                                 : ""
                                         }`}
                                         title={"Topup"}
                                         onClick={(e) => topupHandler(e)}
-                                        btnDisable={btnDisable || !value || tokenValue <= Number(inputValue)}
                                     />
                                     <PrimaryBtn
                                         className={`w-[20%] lg:w-[185px] max-w-[185px] mx-0 ${
-                                            btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, tokenProgram.decimals)
+                                            !value || privateBalance < Number(inputValue) * Math.pow(10, tokenProgram.decimals)
                                                 ? "cursor-not-allowed opacity-50"
                                                 : ""
                                         }`}
                                         title={"Private Link"}
                                         onClick={createPrivateWallet}
-                                        btnDisable={btnDisable || !value || privateBalance <= Number(inputValue) * Math.pow(10, tokenProgram.decimals)}
                                     />
                                 </div>
                             </div>
@@ -1050,16 +1107,17 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                     <Lottie animationData={loaderAnimation} />
                 </div>
             ) : (
-                <div className="lg:min-w-[600px] rounded-[12px] h-full relative justify-center items-center text-center mx-auto mt-20">
-                    <WormholeBridge />
-                    { wormholeLoading && 
-                        <ReactTyped
-                        className="text-white text-[24px]"
-                        strings={["Wormhole loading...."]}
-                        typeSpeed={40}
-                        loop={true} 
-                        />
-                    }
+
+                <div className="rounded">
+                    <WormholeBridge config={wormholeConfig} />
+                        { wormholeLoading && 
+                            <ReactTyped
+                            className="text-white text-[24px]"
+                            strings={["Wormhole loading...."]}
+                            typeSpeed={40}
+                            loop={true} 
+                            />
+                        }
                 </div>
             ))}
             <DepositAmountModal
@@ -1069,8 +1127,8 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                 walletAddress={fromAddress}
                 tokenPrice={tokenPrice}
                 fetchBalance={fetchBalance}
+                tokenProgram={tokenProgram}
             />
-
         </div>
     );
 };

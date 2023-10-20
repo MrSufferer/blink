@@ -9,15 +9,18 @@ import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } from '@solana/web3.js';
 import PrimaryBtn from "../PrimaryBtn";
-import { parse } from "path";
+import { getAssociatedTokenAddress, getAccount, Account, createAssociatedTokenAccountInstruction, createTransferInstruction} from "@solana/spl-token"
+import { TTokenType } from "../../context/GlobalContext";
+
 export interface IDepositAmountComponent {
     tokenPrice: string;
     walletAddress: string;
     handleClose: () => void;
     fetchBalance: () => void;
+    tokenProgram: TTokenType
 }
 export const DepositAmountComponent: FC<IDepositAmountComponent> = (props) => {
-    const { tokenPrice, walletAddress, handleClose, fetchBalance } = props;
+    const { tokenPrice, walletAddress, tokenProgram, handleClose, fetchBalance } = props;
     const { publicKey, sendTransaction } = useWallet();
     const { connection } = useConnection();
 
@@ -41,35 +44,122 @@ export const DepositAmountComponent: FC<IDepositAmountComponent> = (props) => {
 
         const recipient = new PublicKey(walletAddress)
 
-        const transaction = new Transaction().add(
-            SystemProgram.transfer({
+        // const transaction = new Transaction().add(
+        //     SystemProgram.transfer({
+        //         fromPubkey: publicKey,
+        //         toPubkey: recipient,
+        //         lamports: LAMPORTS_PER_SOL * Number(inputValue),
+        //     })
+        // );
+        const block = await connection.getLatestBlockhash("finalized");
+
+        const transaction = new Transaction({
+            blockhash: block.blockhash,
+            lastValidBlockHeight: block.lastValidBlockHeight,
+            feePayer: new PublicKey(publicKey),
+        })
+
+        const associatedTokenProgramId = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+        const tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+        
+        if (tokenProgram.isNative) {
+            const TransactionInstruction = SystemProgram.transfer({
                 fromPubkey: publicKey,
                 toPubkey: recipient,
-                lamports: LAMPORTS_PER_SOL * Number(inputValue),
-            })
-        );
+                lamports: Number(inputValue) * Math.pow(10, tokenProgram.decimals),
+            });
+
+            transaction.add(TransactionInstruction);
+        } else {
+
+            const senderTokenAccountAddress = await getAssociatedTokenAddress(
+                new PublicKey(tokenProgram.tokenMint),
+                new PublicKey(publicKey)
+            );
+
+            const createInstruction = createAssociatedTokenAccountInstruction(
+                new PublicKey(publicKey),
+                senderTokenAccountAddress,
+                new PublicKey(publicKey),
+                new PublicKey(tokenProgram.tokenMint),
+                tokenProgramId,
+                associatedTokenProgramId
+            )
+
+            // Check if the receiver's token account exists
+            let senderTokenAccount: Account
+            try {
+                senderTokenAccount = await getAccount(
+                connection,
+                senderTokenAccountAddress,
+                "finalized",
+                tokenProgramId
+                )
+            } catch (e) {
+                // If the account does not exist, add the create account instruction to the transaction
+                transaction.add(createInstruction)
+            }                 
+
+            // Get the receiver's associated token account address
+            const receiverTokenAccountAddress = await getAssociatedTokenAddress(
+                new PublicKey(tokenProgram.tokenMint),
+                recipient
+            )
+
+            // Create an instruction to create the receiver's token account if it does not exist
+            const createAccountInstruction = createAssociatedTokenAccountInstruction(
+                new PublicKey(publicKey),
+                receiverTokenAccountAddress,
+                recipient,
+                new PublicKey(tokenProgram.tokenMint),
+                tokenProgramId,
+                associatedTokenProgramId
+            )
+
+            // Check if the receiver's token account exists
+            let receiverTokenAccount: Account
+            try {
+                receiverTokenAccount = await getAccount(
+                connection,
+                receiverTokenAccountAddress,
+                "finalized",
+                tokenProgramId
+                )
+            } catch (e) {
+                // If the account does not exist, add the create account instruction to the transaction
+                transaction.add(createAccountInstruction)
+            }
+
+            // Create an instruction to transfer 1 token from the sender's token account to the receiver's token account
+            // Adjusting for decimals of the MINT
+            const transferInstruction = await createTransferInstruction(
+                senderTokenAccountAddress,
+                receiverTokenAccountAddress,
+                publicKey,
+                Number(inputValue) * Math.pow(10, tokenProgram.decimals)
+            )
+
+            // Add the transfer instruction to the transaction
+            transaction.add(transferInstruction)
+
+        }
 
         try {
             const {
                 context: { slot: minContextSlot },
                 value: { blockhash, lastValidBlockHeight }
-            } = await connection.getLatestBlockhashAndContext();
+            } = await connection.getLatestBlockhashAndContext("finalized");
     
             const signature = await sendTransaction(transaction, connection, { minContextSlot });
+
+            toast.warning("Confirming transaction...");
     
-            await connection.confirmTransaction({ blockhash, lastValidBlockHeight, signature });
+            await connection.confirmTransaction({ blockhash, lastValidBlockHeight, signature }, "finalized");
 
             setTransactionLoading(false);
-            
+            toast.success("Depositted Successfully");
             handleClose();
-            toast.success("Depositted!");
-
-            const interval = setInterval(() => {
-                fetchBalance();
-                if (interval !== null) {
-                    clearInterval(interval);
-                }
-            }, 20000);
+            fetchBalance();
 
         } catch (e: any) {
             setTransactionLoading(false);
@@ -152,7 +242,7 @@ export const DepositAmountComponent: FC<IDepositAmountComponent> = (props) => {
                                 />
                             </div>
                             <p className="text-white text-[12px] leading-[14px] text-center">
-                                ~ {inputValue} SOL
+                                ~ {inputValue} {tokenProgram.name}
                             </p>
                         </div>
                     </div>
