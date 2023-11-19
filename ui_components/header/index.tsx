@@ -106,7 +106,7 @@ const Header = (props: IHeader) => {
                     ) : (
                         <div className="flex gap-1 pl-2">
                             <p className="text-[16px] font-bold text-white self-center">
-                                PLink
+                                Blink
                             </p>
                         </div>
                     )}

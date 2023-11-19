@@ -57,7 +57,7 @@ import QrModal from "./QrModal";
 import SecondaryBtn from "./SecondaryBtn";
 import { ShareBtnModal } from "./ShareBtnModal";
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount, Account, createTransferInstruction } from "@solana/spl-token"
+import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount, Account, createTransferInstruction } from "@solana/spl-token";
 
 
 export interface IShareLink {

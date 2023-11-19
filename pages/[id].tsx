@@ -46,7 +46,7 @@ export default function claim() {
     const uuid = router.asPath;
     return (
       <WagmiConfig config={config}>
-        <MetaHead title="Hey, Claim your Reward!!" description="Crypto Rewards Just in a blink" imageUrl="https://cdn3d.iconscout.com/3d/premium/thumb/solana-sol-treasure-chest-6401030-5272502.png" urlEndpoint="" />
+        <MetaHead title="Claim Reward | Blink" description="Crypto Rewards Just in a blink" imageUrl="https://cdn3d.iconscout.com/3d/premium/thumb/solana-sol-treasure-chest-6401030-5272502.png" urlEndpoint="" />
         <ShareLink uuid={uuid} />
       </WagmiConfig>
     );

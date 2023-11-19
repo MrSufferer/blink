@@ -50,7 +50,7 @@ import DepositAmountModal from "./DepositAmountModal";
 import WormholeBridge, { WormholeConnectConfig } from "@wormhole-foundation/wormhole-connect";
 import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError, Account, createAssociatedTokenAccountInstruction, TokenInvalidAccountOwnerError, createTransferInstruction, getOrCreateAssociatedTokenAccount} from "@solana/spl-token"
 
-import PrivateSend from "../PrivateSend"
+import Head from "next/head"
 import { ProfileCard } from "./ProfileCard";
 import { useWagmi } from "../../utils/wagmi/WagmiContext";
 import ReactTyped from "react-typed";
@@ -837,44 +837,63 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     };
 
     return (
-        <div className="mx-auto relative flex items-center justify-center">
-            <ToastContainer
-                toastStyle={{ backgroundColor: "#282B30" }}
-                className={`w-50`}
-                style={{ width: "600px" }}
-                position="bottom-center"
-                autoClose={6000}
-                hideProgressBar={true}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                theme="dark"
-            />
-            {(!wormholeEnabled && !transactionLoading) ? (
-                <div className="max-w-[400px]">
-                    <ProfileCard
-                        balance={price}
-                        showActivity={false}
-                        transactionLoading={false}
-                    ></ProfileCard>
+        <div>
+            <Head>
+                <title>Chest | Blink</title>
+            </Head>
+            <div className="mx-auto relative flex items-center justify-center">
+                <ToastContainer
+                    toastStyle={{ backgroundColor: "#282B30" }}
+                    className={`w-50`}
+                    style={{ width: "600px" }}
+                    position="bottom-center"
+                    autoClose={6000}
+                    hideProgressBar={true}
+                    newestOnTop={false}
+                    closeOnClick
+                    rtl={false}
+                    theme="dark"
+                />
+                {(!wormholeEnabled && !transactionLoading) ? (
+                    <div className="max-w-[400px]">
+                        <ProfileCard
+                            balance={price}
+                            showActivity={false}
+                            transactionLoading={false}
+                        ></ProfileCard>
 
-                    {!showActivity ? (
-                        <>
-                            <div className="rounded-lg border border-white/40 bg-white/5 ">
-                                <div className="flex items-center justify-between py-2 px-4">
-                                    <div>
-                                        <p className="text-[#798593] paragraph">
-                                            YOUR BALANCE
-                                        </p>
-                                        <div className="flex items-start gap-3 my-2">
-                                            <Image
-                                                src={icons.transferIcon}
-                                                alt="transferIcon"
-                                                onClick={handleToggle}
-                                                className="cursor-pointer"
-                                            />
-                                            {toggle ? (
-                                                loading ? (
+                        {!showActivity ? (
+                            <>
+                                <div className="rounded-lg border border-white/40 bg-white/5 ">
+                                    <div className="flex items-center justify-between py-2 px-4">
+                                        <div>
+                                            <p className="text-[#798593] paragraph">
+                                                YOUR BALANCE
+                                            </p>
+                                            <div className="flex items-start gap-3 my-2">
+                                                <Image
+                                                    src={icons.transferIcon}
+                                                    alt="transferIcon"
+                                                    onClick={handleToggle}
+                                                    className="cursor-pointer"
+                                                />
+                                                {toggle ? (
+                                                    loading ? (
+                                                        <div className="w-full h-full">
+                                                            <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
+                                                            <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
+                                                                {price}
+                                                            </p>
+                                                            <p className="text-white/30 text-[14px] leading-[14px]">
+                                                                {tokenValue + " " + tokenProgram.name}
+                                                            </p>
+                                                        </div>
+                                                    )
+                                                ) : loading ? (
                                                     <div className="w-full h-full">
                                                         <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
                                                         <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
@@ -882,253 +901,239 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                                 ) : (
                                                     <div>
                                                         <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
+                                                            ~ {tokenValue + " " + tokenProgram.name}
+                                                        </p>
+                                                        <p className="text-white/30 text-[12px] leading-[14px]">
                                                             {price}
                                                         </p>
-                                                        <p className="text-white/30 text-[14px] leading-[14px]">
-                                                            {tokenValue + " " + tokenProgram.name}
-                                                        </p>
                                                     </div>
-                                                )
-                                            ) : loading ? (
-                                                <div className="w-full h-full">
-                                                    <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
-                                                    <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
-                                                </div>
-                                            ) : (
-                                                <div>
-                                                    <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
-                                                        ~ {tokenValue + " " + tokenProgram.name}
-                                                    </p>
-                                                    <p className="text-white/30 text-[12px] leading-[14px]">
-                                                        {price}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <p className="text-[#798593] text-[14px] font-semibold leading-10">
-                                                Private Balance:
-                                            </p>
-                                            {toggle ? (
-                                                loading ? (
+                                                )}
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <p className="text-[#798593] text-[14px] font-semibold leading-10">
+                                                    Private Balance:
+                                                </p>
+                                                {toggle ? (
+                                                    loading ? (
+                                                        <div className="w-full h-full">
+                                                            <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
+                                                            <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <p className="text-white/60 text-[14px] font-semibold leading-10">
+                                                                {Number(privateBalance) / Math.pow(10, tokenProgram.decimals) + " " + tokenProgram.name}
+                                                            </p>
+                                                        </div>
+                                                    )
+                                                ) : loading ? (
                                                     <div className="w-full h-full">
                                                         <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
                                                         <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
                                                     </div>
                                                 ) : (
                                                     <div>
-                                                        <p className="text-white/60 text-[14px] font-semibold leading-10">
-                                                            {Number(privateBalance) / Math.pow(10, tokenProgram.decimals) + " " + tokenProgram.name}
+                                                        <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
+                                                            ~ {privateBalance.toString() + " " + tokenProgram.name}
+                                                        </p>
+                                                        <p className="text-white/30 text-[12px] leading-[14px]">
+                                                            {price}
                                                         </p>
                                                     </div>
-                                                )
-                                            ) : loading ? (
-                                                <div className="w-full h-full">
-                                                    <div className="w-[40px] h-[10px] bg-white/10 animate-pulse rounded-lg mb-2"></div>
-                                                    <div className="w[40px] h-[10px] bg-white/10 animate-pulse rounded-lg "></div>
-                                                </div>
-                                            ) : (
-                                                <div>
-                                                    <p className="text-white/80 text-[24px] font-semibold leading-10 mb-2">
-                                                        ~ {privateBalance.toString() + " " + tokenProgram.name}
-                                                    </p>
-                                                    <p className="text-white/30 text-[12px] leading-[14px]">
-                                                        {price}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                        { privateFee > 0 &&
-                                        <div className="flex items-start">
-                                            <p className="text-white/60 text-[12px] font-semibold">
-                                               Private Fee: {privateFee} {tokenProgram.name}
-                                            </p>
-                                        </div>
-                                        }
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Image src={(tokenProgram.tokenMint == "SOL") ? icons.solLogo: icons.usdcIcon} alt="transferIcon" />
-                                        <select value={tokenProgram.tokenMint + "-" + tokenProgram.name + "-" + tokenProgram.decimals} onChange={handleTokenProgramChange}>
-                                            <option value="SOL-SOL-9">SOL</option>
-                                            <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v-USDC-6">USDC</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div
-                                    className="bg-white/80 py-2 rounded-b-lg cursor-pointer"
-                                    role="presentation"
-                                    onClick={() => {
-                                        setOpen(true);
-                                    }}
-                                >
-                                    <p className="text-[#010101] text-[14px] leading-[18px] font-medium text-center">
-                                        + Add funds to your account
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="w-full mt-5 ">
-                                <div className="relative rounded-lg border bg-white/5 border-gray-500  h-auto  p-4">
-                                    <div className="flex items-center justify-center">
-                                        <div>
-                                            <div className="flex items-center justify-center">
-                                                {/* <p className="text-[32px] text-white">$</p> */}
-                                                <input
-                                                    name="usdValue"
-                                                    style={{ caretColor: "white" }}
-                                                    inputMode="decimal"
-                                                    type="text"
-                                                    className={`dollorInput pl-0 pt-2 pb-1 backdrop-blur-xl text-[32px] border-none text-center bg-transparent text-white dark:text-textDark-900 placeholder-white dark:placeholder-textDark-300 rounded-lg block w-full focus:outline-none focus:ring-transparent`}
-                                                    placeholder="$0"
-                                                    value={value}
-                                                    onChange={(e) => {
-                                                        handleInputChange(e.target.value);
-                                                    }}
-                                                    disabled={loading}
-                                                    onWheel={() =>
-                                                        (
-                                                            document.activeElement as HTMLElement
-                                                        ).blur()
-                                                    }
-                                                />
+                                                )}
                                             </div>
-                                            {Number(inputValue) > 0 && (
-                                                <p className="text-white/30 text-[12px] leading-[14px] text-center">
-                                                    ~ {inputValue + " " + tokenProgram.name}
+                                            { privateFee > 0 &&
+                                            <div className="flex items-start">
+                                                <p className="text-white/60 text-[12px] font-semibold">
+                                                Private Fee: {privateFee} {tokenProgram.name}
                                                 </p>
-                                            )}
+                                            </div>
+                                            }
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Image src={(tokenProgram.tokenMint == "SOL") ? icons.solLogo: icons.usdcIcon} alt="transferIcon" />
+                                            <select value={tokenProgram.tokenMint + "-" + tokenProgram.name + "-" + tokenProgram.decimals} onChange={handleTokenProgramChange}>
+                                                <option value="SOL-SOL-9">SOL</option>
+                                                <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v-USDC-6">USDC</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div
+                                        className="bg-white/80 py-2 rounded-b-lg cursor-pointer"
+                                        role="presentation"
+                                        onClick={() => {
+                                            setOpen(true);
+                                        }}
+                                    >
+                                        <p className="text-[#010101] text-[14px] leading-[18px] font-medium text-center">
+                                            + Add funds to your account
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="w-full mt-5 ">
+                                    <div className="relative rounded-lg border bg-white/5 border-gray-500  h-auto  p-4">
+                                        <div className="flex items-center justify-center">
+                                            <div>
+                                                <div className="flex items-center justify-center">
+                                                    {/* <p className="text-[32px] text-white">$</p> */}
+                                                    <input
+                                                        name="usdValue"
+                                                        style={{ caretColor: "white" }}
+                                                        inputMode="decimal"
+                                                        type="text"
+                                                        className={`dollorInput pl-0 pt-2 pb-1 backdrop-blur-xl text-[32px] border-none text-center bg-transparent text-white dark:text-textDark-900 placeholder-white dark:placeholder-textDark-300 rounded-lg block w-full focus:outline-none focus:ring-transparent`}
+                                                        placeholder="$0"
+                                                        value={value}
+                                                        onChange={(e) => {
+                                                            handleInputChange(e.target.value);
+                                                        }}
+                                                        disabled={loading}
+                                                        onWheel={() =>
+                                                            (
+                                                                document.activeElement as HTMLElement
+                                                            ).blur()
+                                                        }
+                                                    />
+                                                </div>
+                                                {Number(inputValue) > 0 && (
+                                                    <p className="text-white/30 text-[12px] leading-[14px] text-center">
+                                                        ~ {inputValue + " " + tokenProgram.name}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3 mt-5">
-                                <div
-                                    className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
-                                    role="presentation"
-                                    onClick={() => {
-                                        handleValueClick("1");
-                                    }}
-                                >
-                                    <p className="text-center text-white">$1</p>
+                                <div className="grid grid-cols-3 gap-3 mt-5">
+                                    <div
+                                        className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
+                                        role="presentation"
+                                        onClick={() => {
+                                            handleValueClick("1");
+                                        }}
+                                    >
+                                        <p className="text-center text-white">$1</p>
+                                    </div>
+                                    <div
+                                        className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
+                                        role="presentation"
+                                        onClick={() => {
+                                            handleValueClick("2");
+                                        }}
+                                    >
+                                        <p className="text-center text-white">$2</p>
+                                    </div>
+                                    <div
+                                        className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
+                                        role="presentation"
+                                        onClick={() => {
+                                            handleValueClick("5");
+                                        }}
+                                    >
+                                        <p className="text-center text-white">$5</p>
+                                    </div>
                                 </div>
-                                <div
-                                    className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
-                                    role="presentation"
-                                    onClick={() => {
-                                        handleValueClick("2");
-                                    }}
-                                >
-                                    <p className="text-center text-white">$2</p>
+                                <div className="relative mt-10">
+                                    <div
+                                        className={`flex gap-2 justify-between`}
+                                    >
+                                        <PrimaryBtn
+                                            className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 ${
+                                                !btnDisable || !value || tokenValue <= Number(inputValue)
+                                                    ? "cursor-not-allowed opacity-50"
+                                                    : ""
+                                            }`}
+                                            title={"Create Link"}
+                                            onClick={createWallet}
+                                        />
+                                        <SecondaryBtn
+                                            className={`w-[20%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
+                                                !value || tokenValue <= Number(inputValue)
+                                                    ? "cursor-not-allowed opacity-50"
+                                                    : ""
+                                            }`}
+                                            title={"Topup"}
+                                            onClick={(e) => topupHandler(e)}
+                                        />
+                                        <PrimaryBtn
+                                            className={`w-[20%] lg:w-[185px] max-w-[185px] mx-0 ${
+                                                !value || privateBalance < Number(inputValue) * Math.pow(10, tokenProgram.decimals)
+                                                    ? "cursor-not-allowed opacity-50"
+                                                    : ""
+                                            }`}
+                                            title={"Private Link"}
+                                            onClick={createPrivateWallet}
+                                        />
+                                    </div>
                                 </div>
-                                <div
-                                    className="rounded-lg border border-gray-500 bg-white/5 p-2 cursor-pointer"
-                                    role="presentation"
-                                    onClick={() => {
-                                        handleValueClick("5");
-                                    }}
-                                >
-                                    <p className="text-center text-white">$5</p>
+                                <div className="relative mt-10">
+                                    <div
+                                        className={`flex gap-2 justify-center items-center`}
+                                    >
+                                        <DevelopmentBtn
+                                            className={`w-[50%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
+                                            title={"Invoice Request"}
+                                            rightImage={icons.usdcIcon}
+                                            onClick={(e) => {}}
+                                            btnDisable={true}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="relative mt-10">
-                                <div
-                                    className={`flex gap-2 justify-between`}
-                                >
-                                    <PrimaryBtn
-                                        className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 ${
-                                            !btnDisable || !value || tokenValue <= Number(inputValue)
-                                                ? "cursor-not-allowed opacity-50"
-                                                : ""
-                                        }`}
-                                        title={"Create Link"}
-                                        onClick={createWallet}
-                                    />
-                                    <SecondaryBtn
-                                        className={`w-[20%] lg:w-[185px] text-[#CEDDE0] max-w-[185px] mx-0 ${
-                                            !value || tokenValue <= Number(inputValue)
-                                                ? "cursor-not-allowed opacity-50"
-                                                : ""
-                                        }`}
-                                        title={"Topup"}
-                                        onClick={(e) => topupHandler(e)}
-                                    />
-                                    <PrimaryBtn
-                                        className={`w-[20%] lg:w-[185px] max-w-[185px] mx-0 ${
-                                            !value || privateBalance < Number(inputValue) * Math.pow(10, tokenProgram.decimals)
-                                                ? "cursor-not-allowed opacity-50"
-                                                : ""
-                                        }`}
-                                        title={"Private Link"}
-                                        onClick={createPrivateWallet}
-                                    />
+                                <div className="relative mt-5">
+                                    <div
+                                        className={`flex gap-2 justify-between`}
+                                    >
+                                        <DevelopmentBtn
+                                            className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
+                                            title={"cNFT Drops Link (token-gated)"}
+                                            onClick={(e) => {}}
+                                            btnDisable={true}
+                                        />
+                                        <DevelopmentBtn
+                                            className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
+                                            title={"Vault Instant Link (highest degen APR)"}
+                                            onClick={(e) => {}}
+                                            btnDisable={true}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="relative mt-10">
-                                <div
-                                    className={`flex gap-2 justify-center items-center`}
-                                >
-                                    <DevelopmentBtn
-                                        className={`w-[50%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
-                                        title={"Invoice Request"}
-                                        rightImage={icons.usdcIcon}
-                                        onClick={(e) => {}}
-                                        btnDisable={true}
-                                    />
-                                </div>
-                            </div>
-                            <div className="relative mt-5">
-                                <div
-                                    className={`flex gap-2 justify-between`}
-                                >
-                                    <DevelopmentBtn
-                                        className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
-                                        title={"cNFT Drops Link (token-gated)"}
-                                        onClick={(e) => {}}
-                                        btnDisable={true}
-                                    />
-                                    <DevelopmentBtn
-                                        className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 cursor-not-allowed`}
-                                        title={"Vault Instant Link (highest degen APR)"}
-                                        onClick={(e) => {}}
-                                        btnDisable={true}
-                                    />
-                                </div>
-                            </div>
-                        </>
-                    ) : null}
-                </div>
-            ) : (transactionLoading ? (
-                <div className="w-[full] max-w-[600px] h-full relative flex flex-col text-center items-center gap-5 mx-auto mt-20">
-                    <ReactTyped
-                        className="text-white text-[24px]"
-                        strings={[chestLoadingText]}
-                        typeSpeed={40}
-                        loop={true}
-                    />
-                    <Lottie animationData={loaderAnimation} />
-                </div>
-            ) : (
-
-                <div className="rounded">
-                    <WormholeBridge config={wormholeConfig} />
-                        { wormholeLoading && 
-                            <ReactTyped
+                            </>
+                        ) : null}
+                    </div>
+                ) : (transactionLoading ? (
+                    <div className="w-[full] max-w-[600px] h-full relative flex flex-col text-center items-center gap-5 mx-auto mt-20">
+                        <ReactTyped
                             className="text-white text-[24px]"
-                            strings={["Wormhole loading...."]}
+                            strings={[chestLoadingText]}
                             typeSpeed={40}
-                            loop={true} 
-                            />
-                        }
-                </div>
-            ))}
-            <DepositAmountModal
-                open={open}
-                setOpen={setOpen}
-                openWormhole={handleOpenWormhole}
-                walletAddress={fromAddress}
-                tokenPrice={tokenPrice}
-                fetchBalance={fetchBalance}
-                tokenProgram={tokenProgram}
-            />
+                            loop={true}
+                        />
+                        <Lottie animationData={loaderAnimation} />
+                    </div>
+                ) : (
+
+                    <div className="rounded">
+                        <WormholeBridge config={wormholeConfig} />
+                            { wormholeLoading && 
+                                <ReactTyped
+                                className="text-white text-[24px]"
+                                strings={["Wormhole loading...."]}
+                                typeSpeed={40}
+                                loop={true} 
+                                />
+                            }
+                    </div>
+                ))}
+                <DepositAmountModal
+                    open={open}
+                    setOpen={setOpen}
+                    openWormhole={handleOpenWormhole}
+                    walletAddress={fromAddress}
+                    tokenPrice={tokenPrice}
+                    fetchBalance={fetchBalance}
+                    tokenProgram={tokenProgram}
+                />
+            </div>
         </div>
     );
 };

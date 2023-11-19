@@ -1,10 +1,10 @@
-# Plink
+# Blink
 Built during OPOS Hackathon 2023. Won Elusiv 2nd Track.
 https://www.cubik.so/project/56d265e2-948a-4536-b97a-83522b14532d/hackathon/8e23ade0-0dae-4c4b-83aa-67867749029c
 
 ### How it Works
 1. Create a Link
-2. Share your Plink (with privacy option)
+2. Share your Blink (with privacy option)
 3. Claim Reward
 
 ### Why Does it Matter?
@@ -12,9 +12,9 @@ https://www.cubik.so/project/56d265e2-948a-4536-b97a-83522b14532d/hackathon/8e23
 - Privacy
     - In case you don't want to share your on-chain financial status
 - Social and Email
-    - Send Plinks at scale via email, twitter, discord etc.,
+    - Send Blinks at scale via email, twitter, discord etc.,
 - In Real Life
-    - Distribute Plinks via QR Code or NFC Tags at in person events.
+    - Distribute Blinks via QR Code or NFC Tags at in person events.
 - Cross-chain
     - You can deposit tokens from any chains to Solana.
 

@@ -4,6 +4,7 @@ import * as React from "react";
 import { THandleStep } from "../../pages";
 import { icons } from "../../utils/images";
 import SecondaryBtn from "../SecondaryBtn";
+import Head from 'next/head';
 
 interface IConnectWallet extends THandleStep {
     signIn: () => Promise<void>;
@@ -15,6 +16,10 @@ export default function ConnectWallet(props: IConnectWallet) {
     const { signIn, connecting, connectWallet } = props;
     return (
         <>
+            <Head>
+                <title>Connect | Blink</title>
+            </Head>
+
             <div className="w-full relative lg:pt-10">
                 <div className="w-full text-center p-2 relative">
                     <div className="mb-[30px] lg:mb-5">
