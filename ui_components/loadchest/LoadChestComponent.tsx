@@ -1039,7 +1039,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
                                     >
                                         <PrimaryBtn
                                             className={`w-[45%] lg:w-[185px] max-w-[185px] mx-0 ${
-                                                !btnDisable || !value || tokenValue <= Number(inputValue)
+                                                !value || tokenValue <= Number(inputValue)
                                                     ? "cursor-not-allowed opacity-50"
                                                     : ""
                                             }`}
