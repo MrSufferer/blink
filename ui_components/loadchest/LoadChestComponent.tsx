@@ -64,6 +64,7 @@ ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 
 export interface ILoadChestComponent {
     provider?: any;
+    arcanaAuth?: any;
 }
 
 export type ElusivFeeCalcInfo = {
@@ -72,7 +73,7 @@ export type ElusivFeeCalcInfo = {
 }
 
 export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
-    const { provider } = props;
+    const { provider, arcanaAuth } = props;
 
     const {
         state: { loggedInVia, address, tokenProgram },
@@ -126,13 +127,14 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
     useEffect(() => {
         const setParams = async () => {
             const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "finalized");
+            
+            let provider = await arcanaAuth?.connect()
 
-            const wallet = new SolanaWallet(provider)
-            setSolanaWallet(wallet)
+            const accounts = await provider.request({ 
+                method: 'getAccounts', params: [""]
+            });
 
-            const accounts = await wallet.requestAccounts();
-
-            const signedSeed = await wallet.signMessage(Buffer.from(SEED_MESSAGE))
+            const signedSeed = await arcanaAuth.solana.signMessage(Buffer.from(SEED_MESSAGE))
             
             const elu = await Elusiv.getElusivInstance(
                 signedSeed,
@@ -145,7 +147,7 @@ export const LoadChestComponent: FC<ILoadChestComponent> = (props) => {
         };
     
         setParams();
-    }, []);
+    }, [arcanaAuth]);
 
     useEffect(() => {
         const getPrivateBalance = async () => {

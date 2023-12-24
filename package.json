@@ -11,6 +11,7 @@
         "lint:fix": "eslint ./ --ext .jsx,.js,.ts,.tsx --quiet --fix --ignore-path ./.gitignore"
     },
     "dependencies": {
+        "@arcana/auth": "^1.0.8",
         "@elusiv/sdk": "^0.1.22",
         "@headlessui/react": "^1.7.16",
         "@noble/ed25519": "^2.0.0",

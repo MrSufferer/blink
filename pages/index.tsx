@@ -34,6 +34,7 @@ import HomePage from "../ui_components/home/HomePage";
 import { LoadChestComponent } from "../ui_components/loadchest/LoadChestComponent";
 import { BaseGoerli } from "../utils/chain/baseGoerli";
 import { useWagmi } from "../utils/wagmi/WagmiContext";
+import { AuthProvider } from '@arcana/auth'
 
 export type THandleStep = {
     handleSteps: (step: number) => void;
@@ -66,53 +67,32 @@ export default function Home() {
     const { getAccount, disconnect } = useWagmi();
     const { address, isConnecting, isConnected } = useAccount();
     const [web3auth, setWeb3auth] = useState<Web3AuthNoModal | null>(null);
+    const [arcanaAuth, setArcanaAuth] = useState(null);
     const [provider, setProvider] = useState<SafeEventEmitterProvider | null>(null);
     const [solanaWallet, setSolanaWallet] = useState<SolanaWallet | null>(null);
 
     useEffect(() => {
         async function initializeOpenLogin() {
-        //     const chainConfig = {
-        //         chainNamespace: CHAIN_NAMESPACES.EIP155,
-        //         chainId: BaseGoerli.chainIdHex,
-        //         rpcTarget: BaseGoerli.info.rpc,
-        //         displayName: BaseGoerli.name,
-        //         blockExplorer: BaseGoerli.explorer.url,
-        //         ticker: BaseGoerli.symbol,
-        //         tickerName: "Ethereum",
-        //     };
+            const auth = new AuthProvider(
+                "xar_test_e06c5de03c4b3d1cb19b0aaa773ac2803438fbd0", // App client ID
+                { 
+                  position: 'left',         // default: right
+                  theme: 'light',           // default: dark
+                  alwaysVisible: false,     // default: true, wallet always visible
+                  connectOptions: {
+                    compact: true // default - false
+                  },
+            })
 
-        //     const web3auth = new Web3AuthNoModal({
-        //         clientId: web3AuthClientId,
-        //         web3AuthNetwork: "testnet",
-        //         chainConfig: chainConfig,
-        //     });
+            try {
+                await auth.init()
+                setArcanaAuth(auth)
+                setSolanaWallet(auth.solana)
+              } catch (e) {
+                // Handle exception case
+            }
 
-        //     const privateKeyProvider = new EthereumPrivateKeyProvider({
-        //         config: { chainConfig },
-        //     });
-
-        //     const openloginAdapter = new OpenloginAdapter({
-        //         adapterSettings: {
-        //             uxMode: "popup",
-        //             loginConfig: {
-        //                 google: {
-        //                     name: productName,
-        //                     verifier: web3AuthVerifier,
-        //                     typeOfLogin: web3AuthLoginType,
-        //                     clientId: oauthClientId,
-        //                 },
-        //             },
-        //         },
-        //         loginSettings: {
-        //             mfaLevel: "none",
-        //         },
-        //         privateKeyProvider,
-        //     });
-        //     web3auth.configureAdapter(openloginAdapter);
-        //     setWeb3auth(web3auth);
-        //     await web3auth.init();
-        //     setProvider(web3auth.provider);
-
+            // This old social provider will be removed soon
             const web3auth = new Web3AuthNoModal({
                 clientId: web3AuthClientId, // get it from Web3Auth Dashboard
                 web3AuthNetwork: "testnet",
@@ -165,16 +145,16 @@ export default function Home() {
 
             setProvider(web3auth.provider);
 
-            const solanaWallet = new SolanaWallet(web3auth.provider); // web3auth.provider
+            // const solanaWallet = new SolanaWallet(web3auth.provider); // web3auth.provider
 
-            setSolanaWallet(solanaWallet)
+            // setSolanaWallet(solanaWallet)
         }
 
         initializeOpenLogin();
     }, []);
 
     useEffect(() => {
-        if (web3auth && web3auth.connected) {
+        if (arcanaAuth && arcanaAuth.provider) {
             getAccounts().then((res: any) => {
                 dispatch({
                     type: ACTIONS.LOGGED_IN_VIA,
@@ -188,19 +168,34 @@ export default function Home() {
                 handleSteps(ESTEPS.THREE);
             });
         }
-    }, [provider]);
+    }, [arcanaAuth]);
 
     const signIn = async () => {
-        if (!web3auth) {
+        // if (!web3auth) {
+        //     return;
+        // }
+        // if (web3auth.connected) {
+        //     return;
+        // }
+        // const web3authProvider = await web3auth.connectTo(WALLET_ADAPTERS.OPENLOGIN, {
+        //     loginProvider: "google",
+        // });
+        // setProvider(web3authProvider);
+
+
+        if (!arcanaAuth) {
             return;
         }
-        if (web3auth.connected) {
-            return;
-        }
-        const web3authProvider = await web3auth.connectTo(WALLET_ADAPTERS.OPENLOGIN, {
-            loginProvider: "google",
-        });
-        setProvider(web3authProvider);
+
+        // if (arcanaAuth.connected) {
+        //     return;
+        // }
+
+        console.log(arcanaAuth)
+
+        await arcanaAuth.connect();
+        console.log(arcanaAuth)
+
         const acc = (await getAccounts()) as any;
         localStorage.setItem("isConnected", "true");
         localStorage.setItem("isGoogleLogin", "true");
@@ -208,23 +203,25 @@ export default function Home() {
             type: ACTIONS.LOGGED_IN_VIA,
             payload: LOGGED_IN.GOOGLE,
         });
-        dispatch({
-            type: ACTIONS.SET_ADDRESS,
-            payload: acc,
-        });
-        setWalletAddress(acc);
+        // dispatch({
+        //     type: ACTIONS.SET_ADDRESS,
+        //     payload: acc,
+        // });
+        // setWalletAddress(acc);
+
         handleSteps(ESTEPS.THREE);
     };
 
     const getAccounts = async () => {
-        if (!provider) {
+        if (!arcanaAuth) {
             return;
         }
         try {
             // const contractAddress = await deploySafeContract();
-            const accounts = await solanaWallet.requestAccounts();
+            const accounts = await arcanaAuth.provider.request({ 
+                method: 'getAccounts', params: [""]
+            });
 
-            console.log(accounts[0])
             return await accounts[0];
         } catch (error) {
             return error;
@@ -292,7 +289,7 @@ export default function Home() {
                     />
                 );
             case ESTEPS.THREE:
-                return <LoadChestComponent provider={provider} />;
+                return <LoadChestComponent provider={provider} arcanaAuth={arcanaAuth} />;
             default:
                 return <HomePage handleSetupChest={handleSetupChest} />;
         }
@@ -321,7 +318,7 @@ export default function Home() {
     };
 
     useEffect(() => {
-        if (address && !isConnecting && connecting) {
+        if (address && !isConnecting && connecting && arcanaAuth) {
             localStorage.setItem("isConnected", "true");
             localStorage.setItem("isGoogleLogin", "false");
             dispatch({
